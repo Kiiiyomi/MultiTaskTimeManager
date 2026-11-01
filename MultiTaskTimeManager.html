@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>多任务并行时间管理器</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='15' fill='%23409c94'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>管</text></svg>">
+<script src="https://fastly.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;margin:0;padding:0}
+body{background:#f7f7f2;color:#333;padding:12px;max-width:1200px;margin:0 auto}
+#globalTimerBar{position:sticky;top:0;background:#fff;border-radius:12px;box-shadow:0 2px 8px #00000015;padding:10px;margin-bottom:8px;z-index:99;max-height:80px;overflow-y:auto}
+.timer-chip{display:inline-flex;align-items:center;gap:6px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:20px;padding:4px 10px;margin:3px;font-size:14px}
+.timer-chip b{color:#2e7d32}
+.timer-chip button{background:#c62828;color:white;border:none;border-radius:50%;width:20px;height:20px;line-height:1;font-size:12px;padding:0;cursor:pointer}
+.tab-bar{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;background:#faf9f7;padding:6px 0}
+.tab{padding:8px 14px;background:#e8e8e0;border-radius:8px;cursor:pointer;font-size:14px}
+.tab.active{background:#409c94;color:white}
+.panel{display:none}
+.panel.active{display:block}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px #00000010}
+h3{margin:0 0 10px 0;font-size:16px;color:#2c7c74}
+.flex-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,textarea,button{padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:16px}
+button{cursor:pointer;background:#409c94;color:white;border:none}
+button.secondary{background:#aaa}
+button.danger{background:#dd5555}
+button.icon-btn{width:28px;height:28px;border-radius:6px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+textarea{width:100%;min-height:120px}
+.quadrant-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.quadrant{min-height:220px;padding:10px;border-radius:10px}
+.q1{background:#ffe8e8}.q2{background:#e8f4ff}.q3{background:#fff8dc}.q4{background:#edf8ed}.q5{background:#eee}
+.task-item{padding:8px;border-radius:6px;background:#fff;margin:6px 0;border:1px solid #eee;display:flex;align-items:center;gap:8px}
+.task-item.done{text-decoration:line-through;color:#999;background:#f3f3f3}
+.task-item .task-content{flex:1}
+.time-axis-item{border-left:2px solid #409c94;padding:8px 10px;margin:4px 0;margin-left:10px;position:relative;background:#fafafa;border-radius:0 6px 6px 0;display:flex;align-items:center;gap:8px;font-size:14px}
+.time-axis-item::before{content:"●";position:absolute;left:-14px;color:#409c94}
+.time-axis-item.planned{border-left-color:#aaa}
+.time-axis-item.planned .plan-time{color:#888;text-decoration:line-through}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.quadrant-grid,.stat-grid{grid-template-columns:1fr}}
+.canvas-wrap{width:100%;height:280px}
+.meta-small{font-size:12px;color:#777}
+.badge{font-size:11px;padding:2px 6px;border-radius:4px;background:#e0eef7;margin-right:4px}
+.badge.red{background:#ffdddd;color:#c0392b}
+.badge.yellow{background:#fff3cd;color:#856404}
+.badge.green{background:#d4edda;color:#155724}
+.warn{background:#ffe6e6;color:#b02020;padding:8px;border-radius:6px;margin:8px 0}
+.import-format{background:#f4f4f4;padding:8px;border-radius:6px;font-family:monospace;font-size:12px;white-space:pre-wrap;margin:8px 0}
+.cat-tree-node{margin:4px 0;border-left:1px dashed #ddd;padding-left:10px}
+.cat-header{display:flex;align-items:center;gap:8px;padding:6px;border-radius:6px;cursor:pointer;user-select:none}
+.cat-header:hover{background:#f5f5f5}
+.cat-header .arrow{transition:transform 0.2s;display:inline-block}
+.cat-header .arrow.collapsed{transform:rotate(-90deg)}
+.item-row{display:flex;align-items:center;gap:6px;padding:6px 0 6px 24px}
+.hidden{display:none!important}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#00000050;z-index:100;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:20px;width:90%;max-width:500px;max-height:90vh;overflow-y:auto}
+.form-group{margin-bottom:10px;display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:13px;color:#666}
+.batch-bar{background:#eef3f2;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border:1px solid #d5e3e1}
+</style>
+</head>
+<body>
+<div id="globalTimerBar">
+<div id="globalTimerList" class="meta-small">当前无正在计时的任务</div>
+</div>
+
+<div class="tab-bar">
+<div class="tab active" data-tab="timer">计时器</div>
+<div class="tab" data-tab="todo">待办四象限</div>
+<div class="tab" data-tab="axis">时间轴</div>
+<div class="tab" data-tab="stats">数据统计</div>
+<div class="tab" data-tab="batch">导入&备份</div>
+</div>
+
+<div class="panel active" id="timer">
+<div class="batch-bar">
+<label><input type="checkbox" id="batchSelectAll">全选当前页</label>
+<button class="secondary" onclick="openBatchModal()">批量修改</button>
+<span class="meta-small">已勾选：<span id="batchCheckedCount">0</span>项</span>
+</div>
+<div id="catTreeWrap"></div>
+</div>
+
+<div class="panel" id="todo">
+<div class="card">
+<h3>睡眠保护设置</h3>
+<div class="flex-row">
+<span>每日最低睡眠(小时):</span>
+<input type="number" id="sleepNeed" value="7.5" step="0.5" style="width:70px">
+<button onclick="recalcLoad()">重新计算负载</button>
+</div>
+<div id="loadTip"></div>
+</div>
+<div class="quadrant-grid">
+<div class="quadrant q1"><b>重要紧急</b><div id="q1"></div></div>
+<div class="quadrant q2"><b>重要不紧急</b><div id="q2"></div></div>
+<div class="quadrant q3"><b>紧急不重要</b><div id="q3"></div></div>
+<div class="quadrant q4"><b>不重要不紧急</b><div id="q4"></div></div>
+<div class="quadrant q5"><b>未分类</b><div id="q0"></div></div>
+</div>
+</div>
+
+<div class="panel" id="axis">
+<div class="card">
+<h3>时间轴</h3>
+<div class="flex-row" style="margin-bottom:10px">
+<input type="date" id="axisDate" autocomplete="off">
+<button onclick="renderAxis()">刷新</button>
+<button class="danger" onclick="deleteAxisSelected()">批量删除选中</button>
+<span class="meta-small" id="axisSelectedCount">已选 0 项</span>
+</div>
+<div id="axisWrap" style="margin-top:10px"></div>
+</div>
+</div>
+
+<div class="panel" id="stats">
+<div class="card">
+<h3>统计范围</h3>
+<div class="flex-row">
+<select id="statRange">
+<option value="day">当日</option>
+<option value="7">近7天</option>
+<option value="30">近30天</option>
+</select>
+<button onclick="renderStats()">刷新统计</button>
+</div>
+</div>
+<div class="stat-grid">
+<div class="card"><div class="canvas-wrap"><canvas id="pieChart"></canvas></div></div>
+<div class="card"><div class="canvas-wrap"><canvas id="barChart"></canvas></div></div>
+</div>
+<div class="card"><h3>分类明细</h3><div id="statDetail"></div></div>
+</div>
+
+<div class="panel" id="batch">
+<div class="card">
+<h3>TXT批量导入</h3>
+<div class="import-format">每行4个字段，用逗号隔开：
+分类,事项名,频率(每日/周常/限时/长期),预估分钟
+示例：工作/项目,整理周报,每日,15</div>
+<textarea id="batchText" placeholder="粘贴多行文本"></textarea>
+<button onclick="batchImport()">批量导入</button>
+</div>
+<div class="card">
+<h3>备份 & 恢复</h3>
+<div class="flex-row">
+<button onclick="exportBackup()">导出备份JSON</button>
+<button onclick="document.getElementById('importFile').click()">导入备份</button>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(this)">
+</div>
+</div>
+</div>
+
+<!-- 编辑事项弹窗 -->
+<div class="modal-overlay" id="editModal">
+<div class="modal">
+<h3>编辑事项</h3>
+<div class="form-group">
+<label>事项名称</label>
+<input id="editName">
+</div>
+<div class="form-group">
+<label>所属分类（支持嵌套路径）</label>
+<select id="editCat"></select>
+</div>
+<div class="form-group">
+<label>频率</label>
+<select id="editFreq">
+<option value="每日">每日</option>
+<option value="周常">周常</option>
+<option value="限时">限时</option>
+<option value="长期">长期</option>
+</select>
+</div>
+<div class="form-group">
+<label>所属象限</label>
+<select id="editQuad">
+<option value="1">重要紧急</option>
+<option value="2">重要不紧急</option>
+<option value="3">紧急不重要</option>
+<option value="4">不重要不紧急</option>
+<option value="0">未分类</option>
+</select>
+</div>
+<div class="form-group">
+<label>截止时间</label>
+<input type="datetime-local" id="editDeadline">
+</div>
+<div class="form-group">
+<label>倒计时换算</label>
+<div class="flex-row">
+<input type="number" id="countDay" placeholder="天" style="width:70px">
+<input type="number" id="countHour" placeholder="小时" style="width:70px">
+<button onclick="calcDeadline()">换算</button>
+</div>
+</div>
+<div class="form-group">
+<label>计划行动时间</label>
+<input type="time" id="editActionTime">
+</div>
+<div class="form-group">
+<label>重复计划</label>
+<select id="editRepeat">
+<option value="none">不重复</option>
+<option value="daily">每天</option>
+<option value="week-sun">周常</option>
+</select>
+</div>
+<div class="form-group">
+<label>预估耗时（分钟）</label>
+<input type="number" id="editEst">
+</div>
+<div class="flex-row" style="justify-content:space-between;margin-top:12px">
+<button class="danger" onclick="deleteCurrentEvent()">删除事项</button>
+<div class="flex-row">
+<button class="secondary" onclick="exportSingleToCalendar()" style="background:#4caf50">📅 加入手机日历</button>
+<button class="secondary" onclick="closeEditModal()">取消</button>
+<button onclick="saveEdit()">保存</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- 批量修改弹窗 -->
+<div class="modal-overlay" id="batchModal">
+<div class="modal">
+<h3>批量修改选中事项 <span class="meta-small" id="batchCountInfo"></span></h3>
+<div class="form-group">
+<label>移动到分类</label>
+<select id="batchCatSel"></select>
+<input id="batchNewCat" placeholder="或输入新分类路径（优先）" style="margin-top:6px">
+</div>
+<div class="form-group">
+<label>频率</label>
+<select id="batchFreqSel"><option value="">不修改</option><option value="每日">每日</option><option value="周常">周常</option><option value="限时">限时</option><option value="长期">长期</option></select>
+</div>
+<div class="form-group">
+<label>象限</label>
+<select id="batchQuadSel"><option value="">不修改</option><option value="1">重要紧急</option><option value="2">重要不紧急</option><option value="3">紧急不重要</option><option value="4">不重要不紧急</option><option value="0">未分类</option></select>
+</div>
+<div class="form-group">
+<label>截止时间</label>
+<input type="datetime-local" id="batchDeadline">
+<label style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:13px;color:#666"><input type="checkbox" id="batchClearDeadline" style="width:auto"> 清空截止时间</label>
+</div>
+<div class="form-group">
+<label>行动时间</label>
+<input type="time" id="batchActionTime">
+<label style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:13px;color:#666"><input type="checkbox" id="batchClearActionTime" style="width:auto"> 清空行动时间</label>
+</div>
+<div class="form-group">
+<label>预估耗时（分钟，留空不修改）</label>
+<input type="number" id="batchEst" min="0">
+</div>
+<div class="flex-row" style="justify-content:space-between;margin-top:12px">
+<button class="danger" onclick="batchDeleteSelected()">批量删除选中</button>
+<div class="flex-row">
+<button class="secondary" onclick="exportBatchToCalendar()" style="background:#4caf50">📅 批量加入日历</button>
+<button class="secondary" onclick="closeBatchModal()">关闭</button>
+<button onclick="applyBatchEdit()">应用修改</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- 单事项详情弹窗 -->
+<div class="modal-overlay" id="singleEventModal">
+<div class="modal">
+<div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+  <h3 id="singleEventTitle">记录详情</h3>
+  <select id="singleEventRange" onchange="renderSingleEventDetail()">
+    <option value="all">全部时间</option>
+    <option value="7">近7天</option>
+    <option value="30">近30天</option>
+  </select>
+</div>
+<div id="singleRecordList"></div>
+<button class="secondary" onclick="closeSingleEventModal()" style="margin-top:10px;width:100%">关闭</button>
+</div>
+</div>
+
+<script>
+// 修改了默认的本地存储 Key，并清理了默认分类的隐私
+const DB_KEY = "multiTaskManagerDB";
+let db = { 
+  categories: ["工作/项目", "学习/阅读", "生活/日常"], 
+  events: [], 
+  records: [], 
+  timers: {}, 
+  doneEvents: {}, 
+  settings: { sleepNeed:7.5 }, 
+  batchChecked: [] 
+};
+let currentEditEventId = null;
+let currentSingleEventId = null;
+
+function loadDB(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw){ try{ db = JSON.parse(raw); }catch(e){} }
+  if(!db.settings) db.settings = {sleepNeed:7.5};
+  if(!db.doneEvents) db.doneEvents = {};
+  if(!db.categories) db.categories = [];
+  if(!db.events) db.events = [];
+  if(!db.records) db.records = [];
+  if(!db.timers) db.timers = {};
+  db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []);
+}
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); }
+function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function getNextMonday4am(){ const d = new Date(); const day = d.getDay(); const offset = (1-day+7)%7; const monday = new Date(d.getTime() + offset*24*3600*1000); monday.setHours(4,0,0,0); return monday; }
+function isTodayTask(ev){
+  if(ev.deadline && new Date(ev.deadline).getTime() < Date.now()) return false;
+  if(db.doneEvents[ev.id] === todayStr()) return false;
+  if(ev.repeatPlan === "daily") return true;
+  if(ev.repeatPlan === "week-sun"){
+    const monday4 = getNextMonday4am();
+    if(db.doneEvents[ev.id]){ const doneDate = new Date(db.doneEvents[ev.id]); if(new Date() > monday4) delete db.doneEvents[ev.id]; }
+  }
+  return true;
+}
+function calcDeadline(){
+  const days = Number(document.getElementById("countDay").value || 0);
+  const hours = Number(document.getElementById("countHour").value || 0);
+  const target = new Date(Date.now() + (days*24 + hours)*3600*1000);
+  const local = new Date(target.getTime() - target.getTimezoneOffset()*60000);
+  document.getElementById("editDeadline").value = local.toISOString().slice(0,16);
+}
+
+/* ================= 1. 计时器分类树 ================= */
+function renderCatTree(){
+  const wrap = document.getElementById("catTreeWrap"); wrap.innerHTML = "";
+  db.events.forEach(ev => { if(ev.cat && !db.categories.includes(ev.cat)) db.categories.push(ev.cat); });
+  const validIds = new Set(db.events.map(e => e.id));
+  Array.from(db.batchChecked).forEach(id => { if(!validIds.has(id)) db.batchChecked.delete(id); });
+
+  const tree = {};
+  db.categories.forEach(cat => {
+    const parts = cat.split("/").filter(Boolean);
+    let cur = tree, path = "";
+    parts.forEach(p => { path = path ? path + "/" + p : p; if(!cur[p]) cur[p] = { children:{}, fullPath:path }; cur = cur[p].children; });
+  });
+
+  function makeEventRow(ev){
+    const row = document.createElement("div");
+    row.className = "item-row";
+    let deadlineText = "";
+    if(ev.deadline){
+      const diff = new Date(ev.deadline).getTime() - Date.now();
+      if(diff < 0) deadlineText = `<span class="badge red">已过期</span>`;
+      else deadlineText = `<span class="badge yellow">剩${Math.floor(diff/86400000)}天${Math.floor((diff%86400000)/3600000)}小时</span>`;
+    }
+    const freqClass = ev.freq === "限时" ? "red" : (ev.freq === "每日" ? "green" : "yellow");
+
+    // 修复布局：名称、截止时间、图标紧凑靠左，▶靠最右
+    row.innerHTML = `
+      <input type="checkbox" class="batch-check" ${db.batchChecked.has(ev.id) ? "checked" : ""}>
+      <span class="badge ${freqClass}">${ev.freq || "每日"}</span>
+      <div style="flex:1; display:flex; align-items:center; gap:8px; min-width:0;">
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ev.name}</span>
+        ${deadlineText}
+        <button class="icon-btn secondary" title="查看历史记录">📋</button>
+        <button class="icon-btn secondary" title="编辑">✏️</button>
+      </div>
+      <button class="icon-btn" title="开始计时">▶</button>
+    `;
+
+    row.querySelector(".batch-check").onchange = () => toggleBatchCheck(ev.id);
+    const btns = row.querySelectorAll("button");
+    btns[0].onclick = () => openSingleEventDetail(ev.id);
+    btns[1].onclick = () => openEditModal(ev.id);
+    btns[2].onclick = () => startTimerForEvent(ev.id);
+    return row;
+  }
+
+  function renderNode(nodeObj, indent){
+    const frag = document.createDocumentFragment();
+    Object.keys(nodeObj).forEach(name => {
+      const node = nodeObj[name], fullPath = node.fullPath;
+      const evList = db.events.filter(e => e.cat === fullPath);
+      const nodeDiv = document.createElement("div");
+      nodeDiv.className = "cat-tree-node"; nodeDiv.style.paddingLeft = (indent * 12) + "px";
+
+      const header = document.createElement("div");
+      header.className = "cat-header";
+      header.innerHTML = `<span class="arrow">▼</span><b>${name}</b><span class="meta-small">(${evList.length})</span><button class="icon-btn secondary">＋</button><button class="icon-btn secondary">▶</button><input type="checkbox" title="全选">`;
+      
+      const body = document.createElement("div"); body.className = "cat-body";
+      header.onclick = (e) => { if(e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return; header.querySelector(".arrow").classList.toggle("collapsed"); body.classList.toggle("hidden"); };
+      const btns = header.querySelectorAll("button");
+      btns[0].onclick = (e) => { e.stopPropagation(); addNewEvent(fullPath); };
+      btns[1].onclick = (e) => { e.stopPropagation(); startCatTimer(fullPath); };
+      const catCheck = header.querySelector('input'); catCheck.onclick = e => e.stopPropagation(); catCheck.onchange = () => toggleCatSelect(fullPath);
+
+      evList.forEach(ev => body.appendChild(makeEventRow(ev)));
+      body.appendChild(renderNode(node.children, indent + 1));
+      nodeDiv.appendChild(header); nodeDiv.appendChild(body); frag.appendChild(nodeDiv);
+    });
+    return frag;
+  }
+  wrap.appendChild(renderNode(tree, 0)); updateBatchCount();
+}
+
+function addNewEvent(fullPath){ const name = prompt("输入事项名："); if(!name) return; if(!db.categories.includes(fullPath)) db.categories.push(fullPath); db.events.push({ id: Date.now().toString(), cat: fullPath, name: name, freq: "每日", deadline: null, actionTime: null, repeatPlan: "daily", est: 30, quad: 2 }); saveDB(); renderCatTree(); }
+function startCatTimer(fullPath){ const tid = Date.now().toString(); db.timers[tid] = { tid, eventId: "cat_"+fullPath, startAt: Date.now() }; saveDB(); renderGlobalTimers(); }
+function toggleBatchCheck(evId){ if(db.batchChecked.has(evId)) db.batchChecked.delete(evId); else db.batchChecked.add(evId); saveDB(); updateBatchCount(); }
+function toggleCatSelect(fullPath){ const evList = db.events.filter(e => e.cat === fullPath || e.cat.startsWith(fullPath + "/")); if(!evList.length) return; const allChecked = evList.every(ev => db.batchChecked.has(ev.id)); evList.forEach(ev => { if(allChecked) db.batchChecked.delete(ev.id); else db.batchChecked.add(ev.id); }); saveDB(); renderCatTree(); }
+function updateBatchCount(){ document.getElementById("batchCheckedCount").innerText = db.batchChecked.size; }
+
+/* ================= 2. 编辑与批量修改 ================= */
+function openEditModal(evId){
+  const ev = db.events.find(e => e.id === evId); if(!ev) return;
+  currentEditEventId = evId;
+  document.getElementById("editName").value = ev.name;
+  const catSel = document.getElementById("editCat"); catSel.innerHTML = "";
+  if(!db.categories.includes(ev.cat)) db.categories.push(ev.cat);
+  db.categories.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.textContent = c; if(c === ev.cat) opt.selected = true; catSel.appendChild(opt); });
+  document.getElementById("editFreq").value = ev.freq;
+  document.getElementById("editQuad").value = ev.quad ?? 2;
+  document.getElementById("editDeadline").value = ev.deadline || "";
+  document.getElementById("editActionTime").value = ev.actionTime || "";
+  document.getElementById("editRepeat").value = ev.repeatPlan || "daily";
+  document.getElementById("editEst").value = ev.est || 30;
+  document.getElementById("countDay").value = ""; document.getElementById("countHour").value = "";
+  document.getElementById("editModal").classList.add("show");
+}
+function closeEditModal(){ document.getElementById("editModal").classList.remove("show"); currentEditEventId = null; }
+function saveEdit(){
+  const ev = db.events.find(e => e.id === currentEditEventId); if(!ev) return;
+  ev.name = document.getElementById("editName").value; ev.cat = document.getElementById("editCat").value;
+  ev.freq = document.getElementById("editFreq").value; ev.quad = +document.getElementById("editQuad").value;
+  ev.actionTime = document.getElementById("editActionTime").value; ev.repeatPlan = document.getElementById("editRepeat").value;
+  ev.est = +document.getElementById("editEst").value; ev.deadline = document.getElementById("editDeadline").value || "";
+  saveDB(); renderCatTree(); renderTodos(); closeEditModal();
+}
+function deleteCurrentEvent(){
+  if(!confirm("删除该事项？")) return;
+  db.events = db.events.filter(e => e.id !== currentEditEventId); delete db.doneEvents[currentEditEventId];
+  db.batchChecked.delete(currentEditEventId); saveDB(); renderCatTree(); renderTodos(); closeEditModal();
+}
+
+function openBatchModal(){
+  if(!db.batchChecked.size) return alert("请先勾选事项");
+  const catSel = document.getElementById("batchCatSel"); catSel.innerHTML = '<option value="">不修改</option>';
+  db.categories.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.textContent = c; catSel.appendChild(opt); });
+  document.getElementById("batchNewCat").value = ""; document.getElementById("batchFreqSel").value = "";
+  document.getElementById("batchQuadSel").value = ""; document.getElementById("batchDeadline").value = "";
+  document.getElementById("batchClearDeadline").checked = false; document.getElementById("batchActionTime").value = "";
+  document.getElementById("batchClearActionTime").checked = false; document.getElementById("batchEst").value = "";
+  document.getElementById("batchCountInfo").innerText = `（已选 ${db.batchChecked.size} 项）`;
+  document.getElementById("batchModal").classList.add("show");
+}
+function closeBatchModal(){ document.getElementById("batchModal").classList.remove("show"); }
+function applyBatchEdit(){
+  const ids = Array.from(db.batchChecked).filter(id => db.events.some(e => e.id === id));
+  if(!ids.length) return;
+  let targetCat = ""; const newCatRaw = document.getElementById("batchNewCat").value.trim();
+  if(newCatRaw){ targetCat = newCatRaw.split("/").map(s => s.trim()).filter(Boolean).join("/"); if(targetCat && !db.categories.includes(targetCat)) db.categories.push(targetCat); }
+  else targetCat = document.getElementById("batchCatSel").value;
+  const freq = document.getElementById("batchFreqSel").value, quad = document.getElementById("batchQuadSel").value;
+  const deadline = document.getElementById("batchDeadline").value, clearDeadline = document.getElementById("batchClearDeadline").checked;
+  const actionTime = document.getElementById("batchActionTime").value, clearActionTime = document.getElementById("batchClearActionTime").checked;
+  const estRaw = document.getElementById("batchEst").value.trim(), est = estRaw === "" ? null : Number(estRaw);
+  
+  ids.forEach(id => {
+    const ev = db.events.find(e => e.id === id); if(!ev) return;
+    if(targetCat) ev.cat = targetCat;
+    if(freq) ev.freq = freq;
+    if(quad !== "") ev.quad = Number(quad);
+    if(clearDeadline) ev.deadline = ""; else if(deadline) ev.deadline = deadline;
+    if(clearActionTime) ev.actionTime = ""; else if(actionTime) ev.actionTime = actionTime;
+    if(est !== null && !isNaN(est)) ev.est = est;
+  });
+  saveDB(); closeBatchModal(); renderAll();
+}
+function batchDeleteSelected(){
+  const ids = Array.from(db.batchChecked).filter(id => db.events.some(e => e.id === id));
+  if(!ids.length || !confirm(`确定删除选中的 ${ids.length} 个事项吗？`)) return;
+  const idSet = new Set(ids); db.events = db.events.filter(e => !idSet.has(e.id));
+  ids.forEach(id => delete db.doneEvents[id]); db.batchChecked.clear();
+  saveDB(); closeBatchModal(); renderAll();
+}
+
+/* ================= 3. 待办四象限 ================= */
+function renderTodos(){
+  const qs = {1:"q1",2:"q2",3:"q3",4:"q4",0:"q0"};
+  Object.values(qs).forEach(id => document.getElementById(id).innerHTML = "");
+  const todayTasks = db.events.filter(ev => isTodayTask(ev));
+  todayTasks.forEach(ev => {
+    const div = document.createElement("div");
+    const isDone = db.doneEvents[ev.id] === todayStr();
+    div.className = "task-item" + (isDone ? " done" : "");
+    div.innerHTML = `
+      <button class="icon-btn secondary" title="开始计时">▶</button>
+      <div class="task-content">
+        <span class="badge">${ev.cat.split("/").pop()}</span>
+        ${ev.name} <button class="icon-btn secondary" style="width:22px;height:22px;font-size:12px;padding:0" title="编辑">✏️</button>
+        <div class="meta-small">预估${ev.est}分钟</div>
+      </div>
+      <button class="icon-btn" title="标记完成">✓</button>
+    `;
+    div.querySelectorAll("button")[0].onclick = () => startTimerForEvent(ev.id);
+    div.querySelectorAll("button")[1].onclick = () => openEditModal(ev.id);
+    div.querySelectorAll("button")[2].onclick = () => toggleDone(ev.id);
+    document.getElementById(qs[ev.quad ?? 2] || "q0").appendChild(div);
+  });
+  recalcLoad();
+}
+function toggleDone(evId){ if(db.doneEvents[evId] === todayStr()) delete db.doneEvents[evId]; else db.doneEvents[evId] = todayStr(); saveDB(); renderTodos(); }
+function recalcLoad(){
+  const todayTasks = db.events.filter(ev => isTodayTask(ev));
+  const sumMin = todayTasks.reduce((s,ev) => s + (db.doneEvents[ev.id] === todayStr() ? 0 : (ev.est||30)), 0);
+  const totalAwake = 24 - (+db.settings.sleepNeed); const sumH = sumMin/60; const tip = document.getElementById("loadTip");
+  if(sumH > totalAwake) tip.innerHTML = `<div class="warn">⚠️ 任务 ${sumH.toFixed(1)}h 超过清醒时间 ${totalAwake.toFixed(1)}h，请删减！</div>`;
+  else tip.innerHTML = `<div>✅ 今日预估合计 ${sumH.toFixed(1)}h，清醒可用 ${totalAwake.toFixed(1)}h，余量 ${(totalAwake-sumH).toFixed(1)}h</div>`;
+}
+
+/* ================= 4. 计时器功能 ================= */
+function renderGlobalTimers(){
+  const wrap = document.getElementById("globalTimerList"); const timers = Object.values(db.timers);
+  if(!timers.length) return wrap.innerHTML = "当前无正在计时的任务";
+  wrap.innerHTML = "";
+  timers.forEach(t => {
+    let evName = t.eventId.startsWith("cat_") ? t.eventId.replace("cat_","") + " 整类" : (db.events.find(e=>e.id===t.eventId)?.name || "未知");
+    const dur = Math.floor((Date.now() - t.startAt)/1000);
+    const h = String(Math.floor(dur/3600)).padStart(2,"0"), m = String(Math.floor((dur%3600)/60)).padStart(2,"0"), s = String(dur%60).padStart(2,"0");
+    const chip = document.createElement("div"); chip.className = "timer-chip";
+    chip.innerHTML = `▶ ${evName} <b>${h}:${m}:${s}</b> <button>×</button>`;
+    chip.querySelector("button").onclick = () => stopTimer(t.tid);
+    wrap.appendChild(chip);
+  });
+}
+function startTimerForEvent(eventId){ const tid = Date.now().toString(); db.timers[tid] = { tid, eventId, startAt: Date.now() }; saveDB(); renderGlobalTimers(); }
+function stopTimer(tid){
+  const t = db.timers[tid]; if(!t) return;
+  const durMs = Date.now() - t.startAt; let cat = "其他", name = "";
+  if(t.eventId.startsWith("cat_")){ const fullPath = t.eventId.replace("cat_",""); cat = fullPath.split("/").pop(); name = fullPath + " 整类计时"; }
+  else{ const ev = db.events.find(e => e.id === t.eventId); cat = ev ? ev.cat : "其他"; name = ev ? ev.name : "未知"; }
+  db.records.push({ rid: Date.now(), eventId: t.eventId, cat: cat, name: name, start: new Date(t.startAt).toISOString(), end: new Date().toISOString(), durationMs: durMs });
+  delete db.timers[tid]; saveDB(); renderGlobalTimers(); renderAxis(); renderStats();
+}
+
+/* ================= 5. 时间轴 ================= */
+function renderAxis(){
+  const inputEl = document.getElementById("axisDate"); if(!inputEl.value) inputEl.value = todayStr();
+  const d = inputEl.value, wrap = document.getElementById("axisWrap"); wrap.innerHTML = "";
+  
+  const dayRecs = db.records.filter(r => { const st = new Date(r.start); const localD = `${st.getFullYear()}-${String(st.getMonth()+1).padStart(2,'0')}-${String(st.getDate()).padStart(2,'0')}`; return localD === d; }).sort((a,b) => new Date(a.start) - new Date(b.start));
+  const plannedTasks = db.events.filter(ev => ev.actionTime);
+
+  plannedTasks.forEach(ev => {
+    const hasRecord = dayRecs.some(r => r.eventId === ev.id);
+    const div = document.createElement("div");
+    div.className = "time-axis-item" + (hasRecord ? " planned" : "");
+    div.innerHTML = `
+      <input type="checkbox" class="axis-check" value="plan_${ev.id}">
+      <span class="plan-time" style="flex:1">计划 ${ev.actionTime}：${ev.name} (${ev.est}分)</span>
+      <button class="icon-btn secondary" onclick="openSingleEventDetail('${ev.id}')">🔍</button>
+      <button class="icon-btn secondary" onclick="editAxisPlanTime('${ev.id}')">✏️</button>
+    `;
+    wrap.appendChild(div);
+  });
+
+  dayRecs.forEach(r => {
+    const st = new Date(r.start);
+    const div = document.createElement("div");
+    div.className = "time-axis-item"; div.style.borderLeftColor = "#5b8a72";
+    div.innerHTML = `
+      <input type="checkbox" class="axis-check" value="rec_${r.rid}">
+      <span style="flex:1"><b>实际 ${String(st.getHours()).padStart(2,"0")}:${String(st.getMinutes()).padStart(2,"0")}</b>：${r.name} (${(r.durationMs/1000/60).toFixed(0)}分)</span>
+      <button class="icon-btn secondary" onclick="openSingleEventDetail('${r.eventId}')">🔍</button>
+      <button class="icon-btn secondary" onclick="editAxisRecordTime('${r.rid}')">✏️</button>
+    `;
+    wrap.appendChild(div);
+  });
+
+  if(!plannedTasks.length && !dayRecs.length) wrap.innerHTML = '<div class="meta-small">这一天暂无计划与记录</div>';
+  
+  wrap.querySelectorAll('.axis-check').forEach(cb => {
+    cb.onchange = () => {
+      const count = wrap.querySelectorAll('.axis-check:checked').length;
+      document.getElementById("axisSelectedCount").innerText = `已选 ${count} 项`;
+    }
+  });
+  document.getElementById("axisSelectedCount").innerText = `已选 0 项`;
+}
+
+function editAxisPlanTime(evId){
+  const ev = db.events.find(e => e.id === evId); if(!ev) return;
+  const newTime = prompt("修改计划时间 (格式 HH:MM)：", ev.actionTime);
+  if(newTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(newTime)){ ev.actionTime = newTime; saveDB(); renderAxis(); }
+  else if(newTime) alert("格式错误，请使用 HH:MM");
+}
+
+function editAxisRecordTime(rid){
+  const r = db.records.find(x => x.rid == rid); if(!r) return;
+  const st = new Date(r.start);
+  const currentStr = `${st.getFullYear()}-${String(st.getMonth()+1).padStart(2,'0')}-${String(st.getDate()).padStart(2,'0')} ${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
+  const newStr = prompt("修改实际发生时间 (格式 YYYY-MM-DD HH:MM)：", currentStr);
+  if(!newStr) return;
+  const newDate = new Date(newStr.replace(/-/g, '/'));
+  if(isNaN(newDate.getTime())) return alert("时间格式错误");
+  
+  const durMs = r.durationMs;
+  r.start = newDate.toISOString();
+  r.end = new Date(newDate.getTime() + durMs).toISOString();
+  saveDB(); renderAxis(); renderStats();
+}
+
+function deleteAxisSelected(){
+  const checks = Array.from(document.querySelectorAll('.axis-check:checked')).map(cb => cb.value);
+  if(!checks.length) return alert("请先勾选要删除的项");
+  if(!confirm(`确定删除选中的 ${checks.length} 项吗？`)) return;
+  
+  const planIds = checks.filter(v => v.startsWith('plan_')).map(v => v.replace('plan_', ''));
+  const recIds = checks.filter(v => v.startsWith('rec_')).map(v => Number(v.replace('rec_', '')));
+
+  if(planIds.length){
+    planIds.forEach(id => {
+      const ev = db.events.find(e => e.id === id);
+      if(ev) ev.actionTime = "";
+    });
+  }
+  if(recIds.length){
+    db.records = db.records.filter(r => !recIds.includes(r.rid));
+  }
+  saveDB(); renderAxis(); renderStats();
+}
+
+/* ================= 6. 单事项统计 ================= */
+function openSingleEventDetail(evId){
+  currentSingleEventId = evId;
+  const ev = db.events.find(e => e.id === evId) || { name: "整类计时" };
+  document.getElementById("singleEventTitle").innerText = ev.name + " 记录";
+  document.getElementById("singleEventRange").value = "all";
+  renderSingleEventDetail();
+  document.getElementById("singleEventModal").classList.add("show");
+}
+
+function renderSingleEventDetail(){
+  if(!currentSingleEventId) return;
+  let recs = db.records.filter(r => r.eventId === currentSingleEventId).sort((a,b) => new Date(b.start) - new Date(a.start));
+  const range = document.getElementById("singleEventRange").value;
+  
+  if(range !== "all"){
+    const cutoff = new Date(Date.now() - Number(range)*24*3600*1000);
+    recs = recs.filter(r => new Date(r.start) >= cutoff);
+  }
+
+  const totalMs = recs.reduce((s,r) => s + r.durationMs, 0);
+  const totalMin = totalMs / 1000 / 60;
+  const h = Math.floor(totalMin / 60), m = Math.round(totalMin % 60);
+
+  const listWrap = document.getElementById("singleRecordList");
+  listWrap.innerHTML = `
+    <div style="background:#eef3f2;padding:10px;border-radius:8px;margin-bottom:10px;font-weight:bold;color:#2c7c74">
+      📊 统计：共记录 <span style="color:#dd5555">${recs.length}</span> 次，累计投入 <span style="color:#dd5555">${h}小时${m}分钟</span>
+    </div>` +
+    (recs.map(r => {
+      const st = new Date(r.start);
+      return `<div style="padding:6px;border-bottom:1px solid #eee;font-size:13px">${st.toLocaleString()} — 耗时 ${(r.durationMs/1000/60).toFixed(0)}分钟</div>`;
+    }).join("") || "<div class='meta-small'>该时间段内无记录</div>");
+}
+function closeSingleEventModal(){ document.getElementById("singleEventModal").classList.remove("show"); }
+
+/* ================= 7. 手机日历导出 (ICS) ================= */
+function generateICS(events) {
+  let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MultiTaskTimeManager//CN\r\nCALSCALE:GREGORIAN\r\n";
+  events.forEach(ev => {
+    const dateStr = todayStr().replace(/-/g, '');
+    const timeStr = (ev.actionTime || "09:00").replace(/:/g, '') + "00";
+    const estMin = ev.est || 30;
+    const endHour = String(Math.floor((Number((ev.actionTime||"09:00").split(":")[0])*60 + Number((ev.actionTime||"09:00").split(":")[1]) + estMin)/60)%24).padStart(2,'0');
+    const endMin = String((Number((ev.actionTime||"09:00").split(":")[1]) + estMin)%60).padStart(2,'0');
+    const endTimeStr = endHour + endMin + "00";
+
+    ics += "BEGIN:VEVENT\r\n";
+    ics += `SUMMARY:${ev.name}\r\n`;
+    ics += `DTSTART:${dateStr}T${timeStr}\r\n`;
+    ics += `DTEND:${dateStr}T${endTimeStr}\r\n`;
+    ics += `DESCRIPTION:分类: ${ev.cat}\\n预估耗时: ${estMin}分钟\r\n`;
+    ics += "END:VEVENT\r\n";
+  });
+  ics += "END:VCALENDAR";
+  return ics;
+}
+
+function downloadICS(icsString, filename) {
+  const blob = new Blob([icsString], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+}
+
+function exportSingleToCalendar() {
+  const ev = db.events.find(e => e.id === currentEditEventId);
+  if(!ev) return;
+  downloadICS(generateICS([ev]), `${ev.name}_日历导入.ics`);
+}
+function exportBatchToCalendar() {
+  const ids = Array.from(db.batchChecked);
+  const evs = db.events.filter(e => ids.includes(e.id));
+  if(!evs.length) return;
+  downloadICS(generateICS(evs), `批量事项_日历导入.ics`);
+}
+
+/* ================= 8. 统计图表 / 导入备份 / Tab ================= */
+let pieChart, barChart;
+function renderStats(){
+  const range = document.getElementById("statRange").value; let recs = [];
+  if(range === "day") recs = db.records.filter(r => r.start.slice(0,10) === todayStr());
+  else { const cutoff = new Date(Date.now() - Number(range)*24*3600*1000); recs = db.records.filter(r => new Date(r.start) >= cutoff); }
+  
+  const catMap = {}; recs.forEach(r => { if(!catMap[r.cat]) catMap[r.cat] = 0; catMap[r.cat] += r.durationMs; });
+  const labels = Object.keys(catMap), data = labels.map(k => Math.round(catMap[k]/1000/60));
+  
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById("pieChart"), { type:"pie", data:{ labels, datasets:[{ data, backgroundColor:["#409c94","#ff8888","#ffcc66","#88bbff","#99dd99","#cc99dd"] }] }, options:{ responsive:true, maintainAspectRatio:false } });
+
+  const daySum = {}; recs.forEach(r => { const d = r.start.slice(0,10); if(!daySum[d]) daySum[d] = 0; daySum[d] += r.durationMs/1000/60; });
+  const dayKeys = Object.keys(daySum).sort();
+  if(barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById("barChart"), { type:"bar", data:{ labels:dayKeys, datasets:[{ label:"当日总分钟", data:dayKeys.map(k => daySum[k]), backgroundColor:"#409c94" }] }, options:{ responsive:true, maintainAspectRatio:false } });
+  
+  document.getElementById("statDetail").innerHTML = labels.map(l => `<div>${l}: ${(catMap[l]/1000/60/60).toFixed(2)}h</div>`).join("") || "<div>暂无记录</div>";
+}
+
+function batchImport(){
+  const txt = document.getElementById("batchText").value.trim(), lines = txt.split("\n").filter(x => x.trim() && !x.startsWith("#"));
+  let added = 0;
+  lines.forEach(line => {
+    const parts = line.trim().split(/[,，]/).map(p => p.trim()); if(parts.length < 4) return;
+    const [catName, evName, freq, estStr] = parts;
+    if(!catName || !evName) return;
+    if(!db.categories.includes(catName)) db.categories.push(catName);
+    db.events.push({ id: Date.now().toString() + Math.random().toString().slice(2,8), cat: catName, name: evName, freq: freq, deadline: null, actionTime: null, repeatPlan: "daily", est: Number(estStr)||30, quad: 2 });
+    added++;
+  });
+  saveDB(); renderAll(); alert(`批量导入完成，新增 ${added} 条`);
+}
+function exportBackup(){ const blob = new Blob([JSON.stringify({...db, batchChecked: Array.from(db.batchChecked)}, null, 2)], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "multi-task-backup-" + todayStr() + ".json"; a.click(); URL.revokeObjectURL(url); }
+function importBackup(input){
+  const f = input.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result); db = data;
+      db.settings = db.settings || {sleepNeed:7.5}; db.doneEvents = db.doneEvents || {}; db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {};
+      db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []); saveDB(); renderAll(); alert("备份恢复成功");
+    }catch(err){ alert("解析失败：" + err.message); }
+  }; r.readAsText(f); input.value = "";
+}
+
+document.querySelectorAll(".tab").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+    t.classList.add("active"); document.getElementById(t.dataset.tab).classList.add("active");
+    if(t.dataset.tab === "stats") renderStats(); if(t.dataset.tab === "axis") renderAxis(); if(t.dataset.tab === "todo") renderTodos();
+  };
+});
+document.getElementById("batchSelectAll").addEventListener("change", function(){ if(this.checked) db.events.forEach(ev => db.batchChecked.add(ev.id)); else db.batchChecked.clear(); saveDB(); renderCatTree(); });
+setInterval(() => renderGlobalTimers(), 1000);
+function renderAll(){ renderCatTree(); renderTodos(); renderGlobalTimers(); renderAxis(); renderStats(); }
+
+loadDB(); 
+document.getElementById("axisDate").value = todayStr(); // 强制时间轴默认显示当天
+renderAll();
+</script>
+</body>
+</html>
