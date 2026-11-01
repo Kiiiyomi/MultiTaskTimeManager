@@ -228,6 +228,13 @@ textarea{width:100%;min-height:120px}
 <div class="modal-overlay" id="batchModal">
 <div class="modal">
 <h3>批量修改选中事项 <span class="meta-small" id="batchCountInfo"></span></h3>
+
+<!-- 分类删除操作区 -->
+<div id="batchCatActionWrap" style="display:none; margin-bottom:15px; background:#ffe6e6; padding:10px; border-radius:8px; border:1px solid #ffcccc;">
+  <div style="color:#c62828; font-weight:bold; margin-bottom:8px; font-size:14px;">已选中 <span id="batchCatCount">0</span> 个分类</div>
+  <button class="danger" style="width:100%" onclick="deleteSelectedCategories()">批量删除选中分类（仅限空分类）</button>
+</div>
+
 <div class="form-group">
 <label>移动到分类</label>
 <select id="batchCatSel"></select>
@@ -283,7 +290,6 @@ textarea{width:100%;min-height:120px}
 </div>
 
 <script>
-// 修改了默认的本地存储 Key，并清理了默认分类的隐私
 const DB_KEY = "multiTaskManagerDB";
 let db = { 
   categories: ["工作/项目", "学习/阅读", "生活/日常"], 
@@ -292,7 +298,8 @@ let db = {
   timers: {}, 
   doneEvents: {}, 
   settings: { sleepNeed:7.5 }, 
-  batchChecked: [] 
+  batchChecked: [],
+  selectedCats: []
 };
 let currentEditEventId = null;
 let currentSingleEventId = null;
@@ -306,9 +313,10 @@ function loadDB(){
   if(!db.events) db.events = [];
   if(!db.records) db.records = [];
   if(!db.timers) db.timers = {};
+  if(!db.selectedCats) db.selectedCats = [];
   db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []);
 }
-function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); }
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked), selectedCats: db.selectedCats || [] })); }
 function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function getNextMonday4am(){ const d = new Date(); const day = d.getDay(); const offset = (1-day+7)%7; const monday = new Date(d.getTime() + offset*24*3600*1000); monday.setHours(4,0,0,0); return monday; }
 function isTodayTask(ev){
@@ -354,7 +362,6 @@ function renderCatTree(){
     }
     const freqClass = ev.freq === "限时" ? "red" : (ev.freq === "每日" ? "green" : "yellow");
 
-    // 修复布局：名称、截止时间、图标紧凑靠左，▶靠最右
     row.innerHTML = `
       <input type="checkbox" class="batch-check" ${db.batchChecked.has(ev.id) ? "checked" : ""}>
       <span class="badge ${freqClass}">${ev.freq || "每日"}</span>
@@ -383,16 +390,21 @@ function renderCatTree(){
       const nodeDiv = document.createElement("div");
       nodeDiv.className = "cat-tree-node"; nodeDiv.style.paddingLeft = (indent * 12) + "px";
 
+      const isCatChecked = (db.selectedCats || []).includes(fullPath);
       const header = document.createElement("div");
       header.className = "cat-header";
-      header.innerHTML = `<span class="arrow">▼</span><b>${name}</b><span class="meta-small">(${evList.length})</span><button class="icon-btn secondary">＋</button><button class="icon-btn secondary">▶</button><input type="checkbox" title="全选">`;
+      header.innerHTML = `<span class="arrow">▼</span><b>${name}</b><span class="meta-small">(${evList.length})</span><button class="icon-btn secondary">＋</button><button class="icon-btn secondary">▶</button><input type="checkbox" title="全选" ${isCatChecked ? 'checked' : ''}>`;
       
       const body = document.createElement("div"); body.className = "cat-body";
       header.onclick = (e) => { if(e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return; header.querySelector(".arrow").classList.toggle("collapsed"); body.classList.toggle("hidden"); };
+      
       const btns = header.querySelectorAll("button");
       btns[0].onclick = (e) => { e.stopPropagation(); addNewEvent(fullPath); };
       btns[1].onclick = (e) => { e.stopPropagation(); startCatTimer(fullPath); };
-      const catCheck = header.querySelector('input'); catCheck.onclick = e => e.stopPropagation(); catCheck.onchange = () => toggleCatSelect(fullPath);
+      
+      const catCheck = header.querySelector('input'); 
+      catCheck.onclick = e => e.stopPropagation(); 
+      catCheck.onchange = (e) => toggleCatSelect(fullPath, e.target.checked);
 
       evList.forEach(ev => body.appendChild(makeEventRow(ev)));
       body.appendChild(renderNode(node.children, indent + 1));
@@ -406,8 +418,32 @@ function renderCatTree(){
 function addNewEvent(fullPath){ const name = prompt("输入事项名："); if(!name) return; if(!db.categories.includes(fullPath)) db.categories.push(fullPath); db.events.push({ id: Date.now().toString(), cat: fullPath, name: name, freq: "每日", deadline: null, actionTime: null, repeatPlan: "daily", est: 30, quad: 2 }); saveDB(); renderCatTree(); }
 function startCatTimer(fullPath){ const tid = Date.now().toString(); db.timers[tid] = { tid, eventId: "cat_"+fullPath, startAt: Date.now() }; saveDB(); renderGlobalTimers(); }
 function toggleBatchCheck(evId){ if(db.batchChecked.has(evId)) db.batchChecked.delete(evId); else db.batchChecked.add(evId); saveDB(); updateBatchCount(); }
-function toggleCatSelect(fullPath){ const evList = db.events.filter(e => e.cat === fullPath || e.cat.startsWith(fullPath + "/")); if(!evList.length) return; const allChecked = evList.every(ev => db.batchChecked.has(ev.id)); evList.forEach(ev => { if(allChecked) db.batchChecked.delete(ev.id); else db.batchChecked.add(ev.id); }); saveDB(); renderCatTree(); }
-function updateBatchCount(){ document.getElementById("batchCheckedCount").innerText = db.batchChecked.size; }
+
+function toggleCatSelect(fullPath, isChecked){
+  if (!db.selectedCats) db.selectedCats = [];
+  const evList = db.events.filter(e => e.cat === fullPath || e.cat.startsWith(fullPath + "/"));
+  
+  if (isChecked) {
+    if (!db.selectedCats.includes(fullPath)) db.selectedCats.push(fullPath);
+    evList.forEach(ev => db.batchChecked.add(ev.id));
+  } else {
+    db.selectedCats = db.selectedCats.filter(c => c !== fullPath);
+    evList.forEach(ev => db.batchChecked.delete(ev.id));
+  }
+  
+  saveDB(); 
+  renderCatTree();
+}
+
+function updateBatchCount(){ 
+  const countEl = document.getElementById("batchCheckedCount");
+  const catCount = (db.selectedCats || []).length;
+  if (catCount > 0) {
+    countEl.innerText = `${db.batchChecked.size} (含${catCount}个分类)`;
+  } else {
+    countEl.innerText = db.batchChecked.size;
+  }
+}
 
 /* ================= 2. 编辑与批量修改 ================= */
 function openEditModal(evId){
@@ -442,20 +478,35 @@ function deleteCurrentEvent(){
 }
 
 function openBatchModal(){
-  if(!db.batchChecked.size) return alert("请先勾选事项");
+  const hasCats = db.selectedCats && db.selectedCats.length > 0;
+  if(!db.batchChecked.size && !hasCats) return alert("请先勾选事项或分类");
+  
+  const catActionWrap = document.getElementById("batchCatActionWrap");
+  if (hasCats) {
+    catActionWrap.style.display = "block";
+    document.getElementById("batchCatCount").innerText = db.selectedCats.length;
+  } else {
+    catActionWrap.style.display = "none";
+  }
+
   const catSel = document.getElementById("batchCatSel"); catSel.innerHTML = '<option value="">不修改</option>';
   db.categories.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.textContent = c; catSel.appendChild(opt); });
   document.getElementById("batchNewCat").value = ""; document.getElementById("batchFreqSel").value = "";
   document.getElementById("batchQuadSel").value = ""; document.getElementById("batchDeadline").value = "";
   document.getElementById("batchClearDeadline").checked = false; document.getElementById("batchActionTime").value = "";
   document.getElementById("batchClearActionTime").checked = false; document.getElementById("batchEst").value = "";
-  document.getElementById("batchCountInfo").innerText = `（已选 ${db.batchChecked.size} 项）`;
+  
+  let info = `（已选 ${db.batchChecked.size} 个事项`;
+  if (hasCats) info += `, ${db.selectedCats.length} 个分类`;
+  info += "）";
+  document.getElementById("batchCountInfo").innerText = info;
+  
   document.getElementById("batchModal").classList.add("show");
 }
 function closeBatchModal(){ document.getElementById("batchModal").classList.remove("show"); }
 function applyBatchEdit(){
   const ids = Array.from(db.batchChecked).filter(id => db.events.some(e => e.id === id));
-  if(!ids.length) return;
+  if(!ids.length) return alert("没有选中具体事项可修改");
   let targetCat = ""; const newCatRaw = document.getElementById("batchNewCat").value.trim();
   if(newCatRaw){ targetCat = newCatRaw.split("/").map(s => s.trim()).filter(Boolean).join("/"); if(targetCat && !db.categories.includes(targetCat)) db.categories.push(targetCat); }
   else targetCat = document.getElementById("batchCatSel").value;
@@ -481,6 +532,33 @@ function batchDeleteSelected(){
   const idSet = new Set(ids); db.events = db.events.filter(e => !idSet.has(e.id));
   ids.forEach(id => delete db.doneEvents[id]); db.batchChecked.clear();
   saveDB(); closeBatchModal(); renderAll();
+}
+
+function deleteSelectedCategories() {
+  if (!db.selectedCats || !db.selectedCats.length) return;
+  if (!confirm("确定删除选中的空分类吗？\n（如果分类下包含事项，系统会自动跳过并保护数据）")) return;
+  
+  let deleted = 0;
+  let skipped = 0;
+  
+  db.selectedCats.forEach(cat => {
+    const hasEvents = db.events.some(e => e.cat === cat || e.cat.startsWith(cat + "/"));
+    if (hasEvents) {
+      skipped++;
+    } else {
+      db.categories = db.categories.filter(c => c !== cat && !c.startsWith(cat + "/"));
+      deleted++;
+    }
+  });
+  
+  db.selectedCats = [];
+  db.batchChecked.clear(); 
+  saveDB(); 
+  closeBatchModal(); 
+  renderAll();
+  
+  if (skipped > 0) alert(`删除完成！成功删除 ${deleted} 个分类。\n注意：有 ${skipped} 个分类因为内部还含有事项，已被跳过。请先清空里面的任务再删。`);
+  else alert(`成功删除 ${deleted} 个分类！`);
 }
 
 /* ================= 3. 待办四象限 ================= */
@@ -702,7 +780,7 @@ function exportSingleToCalendar() {
 function exportBatchToCalendar() {
   const ids = Array.from(db.batchChecked);
   const evs = db.events.filter(e => ids.includes(e.id));
-  if(!evs.length) return;
+  if(!evs.length) return alert("没有勾选具体事项");
   downloadICS(generateICS(evs), `批量事项_日历导入.ics`);
 }
 
@@ -740,7 +818,7 @@ function batchImport(){
   });
   saveDB(); renderAll(); alert(`批量导入完成，新增 ${added} 条`);
 }
-function exportBackup(){ const blob = new Blob([JSON.stringify({...db, batchChecked: Array.from(db.batchChecked)}, null, 2)], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "multi-task-backup-" + todayStr() + ".json"; a.click(); URL.revokeObjectURL(url); }
+function exportBackup(){ const blob = new Blob([JSON.stringify({...db, batchChecked: Array.from(db.batchChecked), selectedCats: db.selectedCats || []}, null, 2)], {type:"application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "multi-task-backup-" + todayStr() + ".json"; a.click(); URL.revokeObjectURL(url); }
 function importBackup(input){
   const f = input.files[0]; if(!f) return;
   const r = new FileReader();
@@ -748,6 +826,7 @@ function importBackup(input){
     try{
       const data = JSON.parse(e.target.result); db = data;
       db.settings = db.settings || {sleepNeed:7.5}; db.doneEvents = db.doneEvents || {}; db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {};
+      db.selectedCats = db.selectedCats || [];
       db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []); saveDB(); renderAll(); alert("备份恢复成功");
     }catch(err){ alert("解析失败：" + err.message); }
   }; r.readAsText(f); input.value = "";
@@ -761,12 +840,25 @@ document.querySelectorAll(".tab").forEach(t => {
     if(t.dataset.tab === "stats") renderStats(); if(t.dataset.tab === "axis") renderAxis(); if(t.dataset.tab === "todo") renderTodos();
   };
 });
-document.getElementById("batchSelectAll").addEventListener("change", function(){ if(this.checked) db.events.forEach(ev => db.batchChecked.add(ev.id)); else db.batchChecked.clear(); saveDB(); renderCatTree(); });
+
+// 更新“全选当前页”逻辑，连带分类一起选中
+document.getElementById("batchSelectAll").addEventListener("change", function(){ 
+  if(this.checked) {
+    db.events.forEach(ev => db.batchChecked.add(ev.id)); 
+    db.selectedCats = [...db.categories];
+  } else {
+    db.batchChecked.clear(); 
+    db.selectedCats = [];
+  }
+  saveDB(); 
+  renderCatTree(); 
+});
+
 setInterval(() => renderGlobalTimers(), 1000);
 function renderAll(){ renderCatTree(); renderTodos(); renderGlobalTimers(); renderAxis(); renderStats(); }
 
 loadDB(); 
-document.getElementById("axisDate").value = todayStr(); // 强制时间轴默认显示当天
+document.getElementById("axisDate").value = todayStr(); 
 renderAll();
 </script>
 </body>
