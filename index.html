@@ -869,9 +869,9 @@ function renderGlobalTimers(){
     
     const chip = document.createElement("div"); chip.className = "timer-chip";
     chip.innerHTML = `
-      <span style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">▶ ${evName}</span>
+      <button style="background:transparent; color:#777; border:none; font-size:12px; padding:0 2px; cursor:pointer; width:auto; height:auto;" title="暂停计时">▶</button>
+      <span style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${evName}</span>
       <b>${h}:${m}:${s}</b> 
-      <button class="btn-pause" title="暂停计时">⏸️</button>
       <button class="btn-done" title="完成该事项">✅</button>
       <button title="放弃本段计时">×</button>
     `;
@@ -887,8 +887,8 @@ function renderGlobalTimers(){
     if(!ev) return;
     const chip = document.createElement("div"); chip.className = "timer-chip"; chip.style.background = "#f0f0f0"; chip.style.borderColor = "#ccc";
     chip.innerHTML = `
-      <span style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#888;">💤 ${ev.name}</span>
-      <button class="btn-pause" style="background:#409c94; margin-left:5px;" title="继续计时">▶ 继续</button>
+      <button style="background:transparent; color:#777; border:none; font-size:12px; padding:0 2px; cursor:pointer; width:auto; height:auto;" title="继续计时">💤</button>
+      <span style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#888;">${ev.name}</span>
       <button title="移除">×</button>
     `;
     chip.querySelectorAll("button")[0].onclick = () => startTimerForEvent(ev.id);
