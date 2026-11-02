@@ -204,6 +204,16 @@ textarea{width:100%;min-height:120px}
 <label>截止时间</label>
 <input type="datetime-local" id="editDeadline">
 </div>
+<!-- 倒计时换算功能 -->
+<div class="form-group" style="background:#f9f9f9; padding:8px; border-radius:6px; border:1px dashed #ddd;">
+<label>倒计时换算 (一键算出截止时间)</label>
+<div class="flex-row">
+<input type="number" id="countDay" placeholder="天" style="width:60px; padding:4px 8px;">
+<input type="number" id="countHour" placeholder="时" style="width:60px; padding:4px 8px;">
+<input type="number" id="countMin" placeholder="分" style="width:60px; padding:4px 8px;">
+<button class="secondary" onclick="calcDeadline()" style="padding:4px 10px; font-size:14px;">换算</button>
+</div>
+</div>
 <div class="form-group">
 <label>计划行动时间 (常驻任务按此日期推入待办)</label>
 <input type="datetime-local" id="editActionDateTime">
@@ -220,6 +230,10 @@ textarea{width:100%;min-height:120px}
 <label>预估耗时（分钟）</label>
 <input type="number" id="editEst">
 </div>
+<div class="form-group">
+<label>备注说明 (会在待办中显示，也可导出到日历)</label>
+<textarea id="editNote" style="min-height:60px; font-size:14px;" placeholder="填写补充说明..."></textarea>
+</div>
 <div class="form-group" style="background:#f0f0f0; padding:10px; border-radius:6px;">
 <label>归档状态（不在计时器列表和待办显示）</label>
 <label style="display:flex;flex-direction:row;align-items:center;gap:6px;color:#333;font-size:14px;margin-top:4px;">
@@ -229,6 +243,7 @@ textarea{width:100%;min-height:120px}
 <div class="flex-row" style="justify-content:space-between;margin-top:12px">
 <button class="danger" onclick="deleteCurrentEvent()">删除事项</button>
 <div class="flex-row">
+<button class="secondary" onclick="exportSingleToCalendar()" style="background:#4caf50">📅 加入手机日历</button>
 <button class="secondary" onclick="closeEditModal()">取消</button>
 <button onclick="saveEdit()">保存</button>
 </div>
@@ -446,6 +461,19 @@ function isTodayTask(ev){
   return true;
 }
 
+// 倒计时换算逻辑
+function calcDeadline(){
+  const days = Number(document.getElementById("countDay").value || 0);
+  const hours = Number(document.getElementById("countHour").value || 0);
+  const mins = Number(document.getElementById("countMin").value || 0);
+  
+  if(days === 0 && hours === 0 && mins === 0) return;
+  
+  const target = new Date(Date.now() + (days*24*3600 + hours*3600 + mins*60)*1000);
+  const local = new Date(target.getTime() - target.getTimezoneOffset()*60000);
+  document.getElementById("editDeadline").value = local.toISOString().slice(0,16);
+}
+
 /* ================= 撤销功能 ================= */
 function pushUndo(actionName) {
   const snap = JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) });
@@ -510,7 +538,6 @@ function renderCatTree(){
       if(diff < 0) {
         deadlineText = `<span class="badge red">已过期</span>`;
       } else if (diff < 86400000) { 
-        // 不足 1 天时，显示小时和分钟
         const hours = Math.floor(diff / 3600000);
         const mins = Math.floor((diff % 3600000) / 60000);
         deadlineText = `<span class="badge yellow">剩${hours}小时${mins}分</span>`;
@@ -552,7 +579,6 @@ function renderCatTree(){
 
       const childCount = Object.keys(node.children).length;
       
-      // 过滤归档任务
       let directEvs = db.events.filter(e => e.cat === fullPath && !e.isArchived);
       
       const body = document.createElement("div"); 
@@ -798,12 +824,16 @@ function renderTodos(){
     const isDone = db.doneEvents[ev.id] === todayStr();
     div.className = "task-item" + (isDone ? " done" : "");
     
+    // 增加了备注显示
     div.innerHTML = `
       <button class="icon-btn secondary" title="开始计时" style="${isDone ? 'display:none' : ''}">▶</button>
       <div class="task-content">
         <span class="badge">${lastCat}</span>
         ${ev.name} <button class="icon-btn secondary" style="width:22px;height:22px;font-size:12px;padding:0" title="编辑">✏️</button>
-        <div class="meta-small">预估${ev.est}分钟</div>
+        <div class="meta-small">
+          预估${ev.est}分钟
+          ${ev.note ? `<div style="color:#d32f2f; margin-top:2px;">备注: ${ev.note}</div>` : ''}
+        </div>
       </div>
       <button class="icon-btn" title="${isDone ? '取消完成' : '标记完成'}" style="${isDone ? 'background:#aaa' : ''}">✓</button>
     `;
@@ -967,7 +997,9 @@ function openEditModal(evId){
   document.getElementById("editActionDateTime").value = ev.actionDateTime || "";
   document.getElementById("editRepeat").value = ev.repeatPlan || "daily";
   document.getElementById("editEst").value = ev.est || 30;
+  document.getElementById("editNote").value = ev.note || ""; // 备注
   document.getElementById("editArchived").checked = !!ev.isArchived;
+  document.getElementById("countDay").value = ""; document.getElementById("countHour").value = ""; document.getElementById("countMin").value = "";
   document.getElementById("editModal").classList.add("show");
 }
 function closeEditModal(){ document.getElementById("editModal").classList.remove("show"); currentEditEventId = null; }
@@ -981,6 +1013,7 @@ function saveEdit(){
   ev.repeatPlan = document.getElementById("editRepeat").value;
   ev.est = +document.getElementById("editEst").value; 
   ev.deadline = document.getElementById("editDeadline").value || "";
+  ev.note = document.getElementById("editNote").value; // 保存备注
   ev.isArchived = document.getElementById("editArchived").checked;
   
   if (!ev.isArchived && (ev.freq === "长期" || ev.freq === "常驻")) {
@@ -998,7 +1031,6 @@ function deleteCurrentEvent(){
 }
 
 function openBatchModal(){
-  // 强制弹窗，绝不拦截
   const hasCats = db.selectedCats && db.selectedCats.length > 0;
   
   const catSel = document.getElementById("batchCatSel"); catSel.innerHTML = '<option value="">不修改</option>';
@@ -1027,7 +1059,6 @@ function closeBatchModal(){ document.getElementById("batchModal").classList.remo
 function applyBatchEdit(){
   let ids = Array.from(db.batchChecked);
   
-  // 如果没勾选具体事项，但勾选了分类，则处理该分类下所有事项
   if (ids.length === 0 && db.selectedCats && db.selectedCats.length > 0) {
     ids = db.events.filter(e => db.selectedCats.some(c => e.cat === c || e.cat.startsWith(c + "/"))).map(e => e.id);
   }
@@ -1106,7 +1137,7 @@ function addNewEvent(fullPath){
   pushUndo("新增事项");
   if(!db.categories.includes(fullPath)) db.categories.push(fullPath); 
   const newId = "ID_" + Date.now().toString();
-  db.events.push({ id: newId, cat: fullPath, name: "新事项", freq: "每日", deadline: null, actionDateTime: null, repeatPlan: "daily", est: 30, quad: 2 }); 
+  db.events.push({ id: newId, cat: fullPath, name: "新事项", freq: "每日", deadline: null, actionDateTime: null, repeatPlan: "daily", est: 30, quad: 2, note: "" }); 
   saveDB(); renderCatTree(); openEditModal(newId);
 }
 function startCatTimer(fullPath){ const tid = Date.now().toString(); db.timers[tid] = { tid, eventId: "cat_"+fullPath, startAt: Date.now() }; saveDB(); renderGlobalTimers(); }
@@ -1208,7 +1239,48 @@ function deleteAxisSelected(){
   saveDB(); renderAxis(); renderStats();
 }
 
-/* ================= 7. 单事项统计 & 导入导出 ================= */
+/* ================= 7. 日历导出 & 单事项统计 ================= */
+function generateICS(events) {
+  let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MultiTaskTimeManager//CN\r\nCALSCALE:GREGORIAN\r\n";
+  events.forEach(ev => {
+    let dateStr = todayStr().replace(/-/g, '');
+    let timeStr = "090000";
+    if(ev.actionDateTime) {
+      dateStr = ev.actionDateTime.slice(0,10).replace(/-/g, '');
+      timeStr = ev.actionDateTime.slice(11,16).replace(/:/g, '') + "00";
+    }
+    
+    const estMin = ev.est || 30;
+    const startHour = Number(timeStr.slice(0,2));
+    const startMin = Number(timeStr.slice(2,4));
+    const endHour = String(Math.floor((startHour*60 + startMin + estMin)/60)%24).padStart(2,'0');
+    const endMin = String((startMin + estMin)%60).padStart(2,'0');
+    const endTimeStr = endHour + endMin + "00";
+
+    ics += "BEGIN:VEVENT\r\n";
+    ics += `SUMMARY:${ev.name}\r\n`;
+    ics += `DTSTART:${dateStr}T${timeStr}\r\n`;
+    ics += `DTEND:${dateStr}T${endTimeStr}\r\n`;
+    const desc = `分类: ${ev.cat}\\n备注: ${ev.note || '无'}\\n预估耗时: ${estMin}分钟`;
+    ics += `DESCRIPTION:${desc}\r\n`;
+    ics += "END:VEVENT\r\n";
+  });
+  ics += "END:VCALENDAR";
+  return ics;
+}
+
+function downloadICS(icsString, filename) {
+  const blob = new Blob([icsString], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+}
+
+function exportSingleToCalendar() {
+  const ev = db.events.find(e => e.id === currentEditEventId);
+  if(!ev) return;
+  downloadICS(generateICS([ev]), `${ev.name}_日历导入.ics`);
+}
+
 function openSingleEventDetail(evId){
   currentSingleEventId = evId;
   const ev = db.events.find(e => e.id === evId) || { name: "整类计时" };
@@ -1285,7 +1357,6 @@ function batchImport(){
     
     let id, catName, evName, freq, estStr, quadStr = "2";
     
-    // 检查是否存在 ID (带前缀或长串纯数字)
     if (parts[0].startsWith("ID_") || /^\d{10,}$/.test(parts[0])) {
       id = parts[0];
       catName = parts[1] || "未分类";
@@ -1305,7 +1376,6 @@ function batchImport(){
     if(!catName || !evName) return;
     if(!db.categories.includes(catName)) db.categories.push(catName);
     
-    // 双重匹配，兼容带前缀和不带前缀的旧 ID
     const lookupId1 = id;
     const lookupId2 = id.startsWith("ID_") ? id.replace("ID_", "") : "ID_" + id;
     
@@ -1319,7 +1389,7 @@ function batchImport(){
       existing.est = Number(estStr)||30; existing.quad = quadVal;
       updated++;
     } else {
-      db.events.push({ id: id, cat: catName, name: evName, freq: freq, deadline: null, actionDateTime: null, repeatPlan: "daily", est: Number(estStr)||30, quad: quadVal });
+      db.events.push({ id: id, cat: catName, name: evName, freq: freq, deadline: null, actionDateTime: null, repeatPlan: "daily", est: Number(estStr)||30, quad: quadVal, note: "" });
       added++;
     }
   });
@@ -1329,7 +1399,6 @@ function batchImport(){
 
 function exportToTXT() {
   const lines = db.events.map(e => {
-    // 统一导出为带 ID_ 前缀的格式
     let safeId = e.id.startsWith("ID_") ? e.id : "ID_" + e.id;
     return [safeId, e.cat, e.name, e.freq, e.est, e.quad].join(",");
   });
@@ -1357,6 +1426,7 @@ function importBackup(input){
         if (ev.freq === undefined) ev.freq = "每日";
         if (ev.repeatPlan === undefined) ev.repeatPlan = "daily";
         if (ev.actionDateTime === undefined && ev.actionTime) ev.actionDateTime = "2023-01-01T" + ev.actionTime;
+        if (ev.note === undefined) ev.note = "";
       });
 
       db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []); 
