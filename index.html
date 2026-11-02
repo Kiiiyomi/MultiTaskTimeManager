@@ -1275,20 +1275,37 @@ function batchImport(){
     const parts = line.trim().split(/[,，]/).map(p => p.trim());
     if(parts.length < 4) return;
     
-    let id, catName, evName, freq, estStr, quadStr;
-    if (parts.length >= 5 && parts[0].startsWith("ID_")) {
-      [id, catName, evName, freq, estStr, quadStr] = parts;
+    let id, catName, evName, freq, estStr, quadStr = "2";
+    
+    // 检查是否存在 ID (带前缀或长串纯数字)
+    if (parts[0].startsWith("ID_") || /^\d{10,}$/.test(parts[0])) {
+      id = parts[0];
+      catName = parts[1] || "未分类";
+      evName = parts[2] || "未命名";
+      freq = parts[3] || "每日";
+      estStr = parts[4] || "30";
+      if (parts[5]) quadStr = parts[5];
     } else {
       id = "ID_" + Date.now().toString() + Math.floor(Math.random()*1000);
-      [catName, evName, freq, estStr, quadStr] = parts;
+      catName = parts[0] || "未分类";
+      evName = parts[1] || "未命名";
+      freq = parts[2] || "每日";
+      estStr = parts[3] || "30";
+      if (parts[4]) quadStr = parts[4];
     }
     
-    let quadVal = 0; 
-    if (quadStr && ["1","2","3","4"].includes(quadStr)) quadVal = Number(quadStr);
     if(!catName || !evName) return;
     if(!db.categories.includes(catName)) db.categories.push(catName);
     
-    const existing = db.events.find(e => e.id === id);
+    // 双重匹配，兼容带前缀和不带前缀的旧 ID
+    const lookupId1 = id;
+    const lookupId2 = id.startsWith("ID_") ? id.replace("ID_", "") : "ID_" + id;
+    
+    const existing = db.events.find(e => e.id === lookupId1 || e.id === lookupId2);
+    
+    let quadVal = 0; 
+    if (quadStr && ["1","2","3","4"].includes(quadStr)) quadVal = Number(quadStr);
+    
     if (existing) {
       existing.cat = catName; existing.name = evName; existing.freq = freq;
       existing.est = Number(estStr)||30; existing.quad = quadVal;
@@ -1303,7 +1320,11 @@ function batchImport(){
 }
 
 function exportToTXT() {
-  const lines = db.events.map(e => [e.id, e.cat, e.name, e.freq, e.est, e.quad].join(","));
+  const lines = db.events.map(e => {
+    // 统一导出为带 ID_ 前缀的格式
+    let safeId = e.id.startsWith("ID_") ? e.id : "ID_" + e.id;
+    return [safeId, e.cat, e.name, e.freq, e.est, e.quad].join(",");
+  });
   const header = "# 格式：[ID,分类,事项名,频率(每日/周常/限时/长期/常驻),预估分钟,象限]\n# 修改后请直接粘贴到【TXT批量导入】框内覆盖\n";
   const blob = new Blob([header + lines.join("\n")], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
