@@ -104,11 +104,12 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 
 #ganttTooltip { position:fixed; background:#333; color:#fff; padding:6px 10px; border-radius:6px; font-size:12px; pointer-events:none; display:none; z-index:999; box-shadow:0 2px 8px rgba(0,0,0,0.2); white-space:pre-wrap; line-height:1.4; }
 
-/* 关键修复：手机端强制单列排版 */
+/* 强制修复手机端显示 */
 @media(max-width:800px){
-  .quadrant-grid{grid-template-columns:1fr;}
-  .chart-row{flex-direction:column;}
-  .chart-col{max-width:100%; min-width:100%;}
+  .quadrant-grid{grid-template-columns:1fr !important;}
+  .chart-row{flex-direction:column !important;}
+  .chart-col{max-width:100% !important; min-width:100% !important;}
+  .task-content{word-break:break-all;}
 }
 </style>
 </head>
@@ -181,7 +182,18 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <h3 style="margin:0 0 10px 0;">数据统计</h3>
 <div class="flex-row" style="justify-content:space-between;">
   <div class="flex-row">
-    <input type="date" id="statDate" style="padding:8px;" onchange="renderStats()">
+    <select id="statRangeSel" onchange="toggleCustomDate()" style="padding:6px; font-size:14px;">
+      <option value="day">当日</option>
+      <option value="7">近7天</option>
+      <option value="30">近30天</option>
+      <option value="custom">自定义</option>
+    </select>
+    <div id="singleDateWrap"><input type="date" id="statDate" style="padding:6px;" onchange="renderStats()"></div>
+    <div id="rangeDateWrap" style="display:none;">
+      <input type="date" id="statStartDate" style="padding:6px;" onchange="renderStats()">
+      <span>至</span>
+      <input type="date" id="statEndDate" style="padding:6px;" onchange="renderStats()">
+    </div>
     <button class="action-icon" onclick="renderStats()" style="background:#f1f5f9; color:#475569;" title="刷新统计">🔄</button>
     <button class="action-icon" onclick="openArchiveModal()" style="background:#f1f5f9; color:#475569;" title="归档池">🗄️</button>
   </div>
@@ -211,20 +223,22 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   </div>
 </div>
 
-<div class="card">
-<h3>时段活跃热力图 (0-23点)</h3>
-<div class="heatmap-grid" id="heatmap"></div>
-<div class="heatmap-axis">
-  <span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
-</div>
-</div>
+<div id="dailyChartsWrap">
+  <div class="card">
+  <h3>时段活跃热力图 (0-23点)</h3>
+  <div class="heatmap-grid" id="heatmap"></div>
+  <div class="heatmap-axis">
+    <span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+  </div>
+  </div>
 
-<div class="card" style="margin-bottom:0;">
-<h3>时间块分布</h3>
-<div class="gantt-container" id="ganttChart"></div>
-<div class="gantt-axis">
-  <span>0:00</span><span>3:00</span><span>6:00</span><span>9:00</span><span>12:00</span><span>15:00</span><span>18:00</span><span>21:00</span><span>24:00</span>
-</div>
+  <div class="card" style="margin-bottom:0;">
+  <h3>时间块分布</h3>
+  <div class="gantt-container" id="ganttChart"></div>
+  <div class="gantt-axis">
+    <span>0:00</span><span>3:00</span><span>6:00</span><span>9:00</span><span>12:00</span><span>15:00</span><span>18:00</span><span>21:00</span><span>24:00</span>
+  </div>
+  </div>
 </div>
 
 </div>
@@ -303,12 +317,27 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <div class="modal">
 <h3>补录时间轴记录</h3>
 <div class="form-group"><label>事项名称（输入名称可匹配）</label><input id="addAxisEvName" list="allEventsListAdd"><datalist id="allEventsListAdd"></datalist></div>
-<div class="form-group"><label>开始时间</label><input type="datetime-local" id="addAxisTimeStart" oninput="calcAxisTime('start')"></div>
-<div class="form-group"><label>结束时间</label><input type="datetime-local" id="addAxisTimeEnd" oninput="calcAxisTime('end')"></div>
-<div class="form-group"><label>耗时（分钟）</label><input type="number" id="addAxisDur" min="1" oninput="calcAxisTime('dur')"></div>
+<div class="form-group"><label>开始时间</label><input type="datetime-local" id="addAxisTimeStart" oninput="calcAxisTime('start')" onchange="calcAxisTime('start')"></div>
+<div class="form-group"><label>结束时间</label><input type="datetime-local" id="addAxisTimeEnd" oninput="calcAxisTime('end')" onchange="calcAxisTime('end')"></div>
+<div class="form-group"><label>耗时（分钟）</label><input type="number" id="addAxisDur" min="1" oninput="calcAxisTime('dur')" onchange="calcAxisTime('dur')"></div>
 <div class="flex-row" style="justify-content:flex-end;margin-top:15px">
 <button class="secondary" onclick="closeAxisAddModal()">取消</button>
 <button onclick="saveAxisAdd()">保存</button>
+</div>
+</div>
+</div>
+
+<!-- 时间轴记录编辑 (已加联动) -->
+<div class="modal-overlay" id="axisEditModal">
+<div class="modal">
+<h3>编辑记录</h3>
+<div class="form-group"><label>关联事项</label><input id="axisEditEvName" list="allEventsList"><datalist id="allEventsList"></datalist></div>
+<div class="form-group"><label>开始时间</label><input type="datetime-local" id="axisEditTimeStart" oninput="calcAxisEditTime('start')" onchange="calcAxisEditTime('start')"></div>
+<div class="form-group"><label>结束时间</label><input type="datetime-local" id="axisEditTimeEnd" oninput="calcAxisEditTime('end')" onchange="calcAxisEditTime('end')"></div>
+<div class="form-group"><label>耗时（分钟）</label><input type="number" id="axisEditDur" min="1" oninput="calcAxisEditTime('dur')" onchange="calcAxisEditTime('dur')"></div>
+<div class="flex-row" style="justify-content:flex-end;margin-top:15px">
+<button class="secondary" onclick="closeAxisEditModal()">取消</button>
+<button onclick="saveAxisEdit()">保存</button>
 </div>
 </div>
 </div>
@@ -369,20 +398,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 <div id="singleRecordList"></div>
 <button class="secondary" onclick="closeSingleEventModal()" style="margin-top:15px;width:100%">关闭</button>
-</div>
-</div>
-
-<!-- 时间轴记录编辑 -->
-<div class="modal-overlay" id="axisEditModal">
-<div class="modal">
-<h3>编辑记录</h3>
-<div class="form-group"><label>关联事项</label><input id="axisEditEvName" list="allEventsList"><datalist id="allEventsList"></datalist></div>
-<div class="form-group"><label>发生时间</label><input type="datetime-local" id="axisEditTime"></div>
-<div class="form-group"><label>耗时（分钟）</label><input type="number" id="axisEditDur" min="1"></div>
-<div class="flex-row" style="justify-content:flex-end;margin-top:15px">
-<button class="secondary" onclick="closeAxisEditModal()">取消</button>
-<button onclick="saveAxisEdit()">保存</button>
-</div>
 </div>
 </div>
 
@@ -548,6 +563,48 @@ function calcAxisTime(source) {
   }
 }
 
+// 时间轴修改记录联动计算
+function calcAxisEditTime(source) {
+  const startEl = document.getElementById("axisEditTimeStart");
+  const endEl = document.getElementById("axisEditTimeEnd");
+  const durEl = document.getElementById("axisEditDur");
+
+  const startStr = startEl.value;
+  const endStr = endEl.value;
+  const durVal = Number(durEl.value);
+
+  if (source === 'start' || source === 'end') {
+      if (startStr && endStr) {
+          const start = new Date(startStr);
+          const end = new Date(endStr);
+          let diff = (end - start) / 60000; 
+          if (diff >= 0) durEl.value = Math.round(diff);
+      } else if (startStr && durVal > 0) {
+          if (source === 'start') {
+              const start = new Date(startStr);
+              const end = new Date(start.getTime() + durVal * 60000);
+              endEl.value = formatDatetimeLocal(end);
+          }
+      } else if (endStr && durVal > 0) {
+          if (source === 'end') {
+              const end = new Date(endStr);
+              const start = new Date(end.getTime() - durVal * 60000);
+              startEl.value = formatDatetimeLocal(start);
+          }
+      }
+  } else if (source === 'dur') {
+      if (startStr && durVal > 0) {
+          const start = new Date(startStr);
+          const end = new Date(start.getTime() + durVal * 60000);
+          endEl.value = formatDatetimeLocal(end);
+      } else if (endStr && durVal > 0) {
+          const end = new Date(endStr);
+          const start = new Date(end.getTime() - durVal * 60000);
+          startEl.value = formatDatetimeLocal(start);
+      }
+  }
+}
+
 /* ================= 撤销 ================= */
 function pushUndo(actionName) {
   const snap = JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) });
@@ -569,7 +626,6 @@ function updateUndoBtn() {
   else { btn.style.display = "none"; }
 }
 
-// 补充被漏掉的更新计数函数
 function updateBatchCount() {
   const el = document.getElementById("batchCheckedCount");
   if (el) el.innerText = db.batchChecked.size;
@@ -1198,34 +1254,83 @@ function openAxisEditModal(rid) {
   const datalist = document.getElementById("allEventsList");
   datalist.innerHTML = db.events.map(e => `<option value="${e.name}">`).join("");
   document.getElementById("axisEditEvName").value = r.name;
+  
   const st = new Date(r.start);
-  document.getElementById("axisEditTime").value = `${st.getFullYear()}-${String(st.getMonth()+1).padStart(2,'0')}-${String(st.getDate()).padStart(2,'0')}T${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
+  const et = new Date(r.end);
+  document.getElementById("axisEditTimeStart").value = formatDatetimeLocal(st);
+  document.getElementById("axisEditTimeEnd").value = formatDatetimeLocal(et);
   document.getElementById("axisEditDur").value = Math.round(r.durationMs/60000);
+  
   document.getElementById("axisEditModal").classList.add("show");
 }
 function closeAxisEditModal(){ document.getElementById("axisEditModal").classList.remove("show"); currentAxisEditRid = null; }
+
 function saveAxisEdit() {
   const r = db.records.find(x => x.rid == currentAxisEditRid); if(!r) return;
   const newName = document.getElementById("axisEditEvName").value.trim();
-  const newTimeStr = document.getElementById("axisEditTime").value;
+  const newTimeStartStr = document.getElementById("axisEditTimeStart").value;
+  const newTimeEndStr = document.getElementById("axisEditTimeEnd").value;
   const newDur = Number(document.getElementById("axisEditDur").value);
-  if(!newTimeStr || isNaN(newDur)) return alert("时间或时长无效");
+  
+  if(!newTimeStartStr || !newTimeEndStr || isNaN(newDur)) return alert("时间或时长无效");
+  
+  const st = new Date(newTimeStartStr);
+  const et = new Date(newTimeEndStr);
+  if (et < st) return alert("结束时间不能早于开始时间");
+  
   pushUndo("改时间轴");
   const matchedEv = db.events.find(e => e.name === newName);
   if(matchedEv) { r.eventId = matchedEv.id; r.name = matchedEv.name; r.cat = matchedEv.cat.split("/").pop(); } else { r.name = newName; }
-  const st = new Date(newTimeStr);
-  r.start = st.toISOString(); r.end = new Date(st.getTime() + newDur*60000).toISOString(); r.durationMs = newDur*60000;
+  
+  r.start = st.toISOString(); 
+  r.end = et.toISOString(); 
+  r.durationMs = newDur*60000;
+  
   saveDB(); closeAxisEditModal(); renderAxis(); renderStats();
 }
 
 /* ================= 纯文字统计 + 全新并发计算 + 热力图 ================= */
 let pieChart;
+function toggleCustomDate() {
+  const range = document.getElementById("statRangeSel").value;
+  if(range === "custom") {
+    document.getElementById("singleDateWrap").style.display = "none";
+    document.getElementById("rangeDateWrap").style.display = "flex";
+    if(!document.getElementById("statStartDate").value) document.getElementById("statStartDate").value = todayStr();
+    if(!document.getElementById("statEndDate").value) document.getElementById("statEndDate").value = todayStr();
+  } else {
+    document.getElementById("singleDateWrap").style.display = "block";
+    document.getElementById("rangeDateWrap").style.display = "none";
+  }
+  renderStats();
+}
+
 function renderStats(){
-  const statDateStr = document.getElementById("statDate").value || todayStr();
+  const rangeType = document.getElementById("statRangeSel").value;
+  let startDate, endDate;
+  let isSingleDay = false;
+
+  if (rangeType === "day") {
+    const dStr = document.getElementById("statDate").value || todayStr();
+    startDate = new Date(dStr);
+    endDate = new Date(dStr);
+    isSingleDay = true;
+  } else if (rangeType === "7" || rangeType === "30") {
+    endDate = new Date(todayStr());
+    startDate = new Date(endDate.getTime() - (Number(rangeType)-1) * 24 * 3600 * 1000);
+    isSingleDay = false;
+  } else if (rangeType === "custom") {
+    startDate = new Date(document.getElementById("statStartDate").value || todayStr());
+    endDate = new Date(document.getElementById("statEndDate").value || todayStr());
+    isSingleDay = (startDate.getTime() === endDate.getTime());
+  }
+
+  startDate.setHours(0,0,0,0);
+  endDate.setHours(23,59,59,999);
+
   const recs = db.records.filter(r => {
     const st = new Date(r.start);
-    const localD = `${st.getFullYear()}-${String(st.getMonth()+1).padStart(2,'0')}-${String(st.getDate()).padStart(2,'0')}`;
-    return localD === statDateStr;
+    return st >= startDate && st <= endDate;
   }).sort((a,b) => new Date(a.start) - new Date(b.start));
 
   const totalMs = recs.reduce((s,r) => s + r.durationMs, 0);
@@ -1239,7 +1344,7 @@ function renderStats(){
   const catArray = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
   
   const catHtml = catArray.map(([k, v], idx) => {
-    const pct = (v / totalMs) * 100;
+    const pct = totalMs > 0 ? (v / totalMs) * 100 : 0;
     return `<div class="rank-item">
       <span style="font-weight:500; width:80px; word-break:break-all;">${k}</span>
       <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${pct}%; background:${colors[idx%colors.length]};"></div></div>
@@ -1298,18 +1403,28 @@ function renderStats(){
   const concHtml = concArray.map(([k, v]) => `<div class="rank-item"><span>🔥 <b>${k}</b></span><span style="color:#f59e0b;font-weight:bold; font-size:12px;">累计 ${formatDuration(v)}</span></div>`).join("");
   document.getElementById("concurrencyList").innerHTML = concHtml || "<div style='color:#94a3b8'>无并发情况</div>";
 
-  // 4. 热力图
+  // 4. 热力图 & 时间块
+  const dailyChartsWrap = document.getElementById("dailyChartsWrap");
+  if (isSingleDay && (rangeType === "day" || rangeType === "custom")) {
+    dailyChartsWrap.style.display = "block";
+    renderHeatmap(recs, startDate);
+    renderGantt(recs, startDate);
+  } else {
+    dailyChartsWrap.innerHTML = "<div style='font-size:13px;color:#94a3b8;text-align:center;padding:20px;background:#fff;border-radius:12px;'>仅单日统计支持热力图和时间块</div>";
+  }
+}
+
+function renderHeatmap(recs, baseDate) {
   const heatmapWrap = document.getElementById("heatmap");
   heatmapWrap.innerHTML = "";
   const hourMs = new Array(24).fill(0);
+  const baseTs = baseDate.getTime();
   
   recs.forEach(r => {
     const st = new Date(r.start).getTime();
     const et = new Date(r.end).getTime();
-    const baseDate = new Date(statDateStr).getTime();
-    
     for(let h=0; h<24; h++) {
-       const hStart = baseDate + h * 3600000;
+       const hStart = baseTs + h * 3600000;
        const hEnd = hStart + 3600000;
        const overlap = Math.max(0, Math.min(et, hEnd) - Math.max(st, hStart));
        hourMs[h] += overlap;
@@ -1329,12 +1444,14 @@ function renderStats(){
     }
     heatmapWrap.appendChild(cell);
   }
+}
 
-  // 5. 时间块分布图
+function renderGantt(recs, baseDate) {
   const ganttWrap = document.getElementById("ganttChart");
   ganttWrap.innerHTML = "";
   const evColorMap = {};
   let colorIdx = 0;
+  const colors = ["#ef4444","#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f43f5e","#84cc16","#06b6d4"];
 
   for(let i=0; i<=8; i++){
     const grid = document.createElement("div");
@@ -1454,7 +1571,6 @@ function exportToTXT() {
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "MultiTaskTimeManager_Tasks_" + getFullTimeStr() + ".txt"; a.click(); URL.revokeObjectURL(a.href);
 }
 
-// 导出备份（纯英文文件名+精确到分钟）
 function exportBackup(){ 
   const blob = new Blob([JSON.stringify({...db, batchChecked: Array.from(db.batchChecked)}, null, 2)], {type:"application/json"}); 
   const a = document.createElement("a"); 
