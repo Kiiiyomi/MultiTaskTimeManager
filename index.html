@@ -204,7 +204,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   </div>
 </div>
 
-<!-- 热力图 -->
 <div class="card">
 <h3>时段活跃热力图 (0-23点)</h3>
 <div class="heatmap-grid" id="heatmap"></div>
@@ -460,6 +459,7 @@ function loadDB(){
 }
 function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); }
 function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function getFullTimeStr() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`; }
 function formatDuration(ms) {
   const totalMin = Math.round(ms / 60000);
   if(totalMin < 60) return `${totalMin}分钟`;
@@ -560,6 +560,12 @@ function updateUndoBtn() {
   const btn = document.getElementById("undoBtn");
   if (undoStack.length > 0) { btn.style.display = "inline-block"; } 
   else { btn.style.display = "none"; }
+}
+
+// 补充被漏掉的更新计数函数
+function updateBatchCount() {
+  const el = document.getElementById("batchCheckedCount");
+  if (el) el.innerText = db.batchChecked.size;
 }
 
 /* ================= 极简原生 DOM 折叠 ================= */
@@ -1438,9 +1444,19 @@ function batchImport(){
 function exportToTXT() {
   const lines = db.events.map(e => [(e.id.startsWith("ID_") ? e.id : "ID_" + e.id), e.cat, e.name, e.freq, e.est, e.quad].join(","));
   const blob = new Blob(["# [ID,分类,事项名,循环频率,预估分钟,象限]\n" + lines.join("\n")], { type: "text/plain;charset=utf-8" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "事项TXT导出_" + todayStr() + ".txt"; a.click(); URL.revokeObjectURL(a.href);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "MultiTaskTimeManager_Tasks_" + getFullTimeStr() + ".txt"; a.click(); URL.revokeObjectURL(a.href);
 }
-function exportBackup(){ const blob = new Blob([JSON.stringify({...db, batchChecked: Array.from(db.batchChecked)}, null, 2)], {type:"application/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "backup_" + todayStr() + ".json"; a.click(); URL.revokeObjectURL(a.href); }
+
+// 导出备份（纯英文文件名+精确到分钟）
+function exportBackup(){ 
+  const blob = new Blob([JSON.stringify({...db, batchChecked: Array.from(db.batchChecked)}, null, 2)], {type:"application/json"}); 
+  const a = document.createElement("a"); 
+  a.href = URL.createObjectURL(blob); 
+  a.download = "MultiTaskTimeManager_Backup_" + getFullTimeStr() + ".json"; 
+  a.click(); 
+  URL.revokeObjectURL(a.href); 
+}
+
 function importBackup(input){
   const f = input.files[0]; if(!f) return;
   const r = new FileReader();
