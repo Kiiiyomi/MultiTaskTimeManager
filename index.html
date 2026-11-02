@@ -507,8 +507,16 @@ function renderCatTree(){
     let deadlineText = "";
     if(ev.deadline){
       const diff = new Date(ev.deadline).getTime() - Date.now();
-      if(diff < 0) deadlineText = `<span class="badge red">已过期</span>`;
-      else deadlineText = `<span class="badge yellow">剩${Math.floor(diff/86400000)}天${Math.floor((diff%86400000)/3600000)}小时</span>`;
+      if(diff < 0) {
+        deadlineText = `<span class="badge red">已过期</span>`;
+      } else if (diff < 86400000) { 
+        // 不足 1 天时，显示小时和分钟
+        const hours = Math.floor(diff / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        deadlineText = `<span class="badge yellow">剩${hours}小时${mins}分</span>`;
+      } else {
+        deadlineText = `<span class="badge yellow">剩${Math.floor(diff/86400000)}天${Math.floor((diff%86400000)/3600000)}小时</span>`;
+      }
     }
     const freqClass = ev.freq === "限时" ? "red" : (ev.freq === "每日" ? "green" : "yellow");
 
