@@ -51,7 +51,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .q1{background:#fef2f2}.q2{background:#eff6ff}.q3{background:#fefce8}.q4{background:#f0fdf4}.q5{background:#f8fafc}
 .task-item{padding:10px;border-radius:8px;background:#fff;margin:6px 0;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px #00000005;}
 .task-item.done{text-decoration:line-through;color:#94a3b8;background:#f8fafc;opacity:0.8}
-.task-item .task-content{flex:1}
+.task-item .task-content{flex:1; min-width:0;}
 
 /* ================= 分类树排版 ================= */
 .cat-tree-node{margin:2px 0;padding-left:10px;}
@@ -103,6 +103,13 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .heatmap-axis { display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-top:4px; }
 
 #ganttTooltip { position:fixed; background:#333; color:#fff; padding:6px 10px; border-radius:6px; font-size:12px; pointer-events:none; display:none; z-index:999; box-shadow:0 2px 8px rgba(0,0,0,0.2); white-space:pre-wrap; line-height:1.4; }
+
+/* 关键修复：手机端强制单列排版 */
+@media(max-width:800px){
+  .quadrant-grid{grid-template-columns:1fr;}
+  .chart-row{flex-direction:column;}
+  .chart-col{max-width:100%; min-width:100%;}
+}
 </style>
 </head>
 <body>
@@ -1313,7 +1320,7 @@ function renderStats(){
     const cell = document.createElement("div");
     cell.className = "heatmap-cell";
     if (hourMs[i] > 0) {
-      const alpha = 0.2 + Math.min(hourMs[i] / 3600000, 1) * 0.8; // 最深为1小时
+      const alpha = 0.2 + Math.min(hourMs[i] / 3600000, 1) * 0.8; 
       cell.style.background = `rgba(64, 156, 148, ${alpha})`;
       cell.title = `${i}:00 - ${i+1}:00\n活跃: ${formatDuration(hourMs[i])}`;
       cell.onclick = () => alert(`${i}:00 - ${i+1}:00\n活跃时长: ${formatDuration(hourMs[i])}`);
