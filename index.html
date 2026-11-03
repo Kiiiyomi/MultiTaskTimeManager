@@ -561,18 +561,6 @@ function processDailyTransition() {
   const todayS = todayStr();
   if (db.settings.lastActiveDate === todayS) return;
   
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = dateToStr(yesterday);
-
-  db.events.forEach(ev => {
-    if (ev.freq === "常驻" && !ev.isArchived) {
-       if (db.doneEvents[ev.id] !== yesterdayStr && !db.pulledEvents.includes(ev.id)) {
-           db.pulledEvents.push(ev.id);
-       }
-    }
-  });
-
   Object.keys(db.doneEvents).forEach(evId => {
     const doneDateStr = db.doneEvents[evId];
     const ev = db.events.find(e => e.id === evId);
@@ -760,6 +748,9 @@ function getFilteredTasksForDate(targetViewDateStr) {
   db.events.forEach(ev => {
     if (ev.isArchived) return;
     
+    // 【修复】严格判断常驻/长期任务：如果没有被拉取，绝对不能显示在待办里
+    if ((ev.freq === "长期" || ev.freq === "常驻") && !db.pulledEvents.includes(ev.id)) return;
+
     let isForView = false;
     const evTodayStr = getEvTodayStr(ev, realNow);
     
@@ -769,7 +760,7 @@ function getFilteredTasksForDate(targetViewDateStr) {
        }
     } else {
        if (ev.freq === "长期" || ev.freq === "常驻") {
-           // 依赖拉取状态
+           isForView = true; // 只要被拉取过，历史/未来都可见
        } else {
            if (db.doneEvents[ev.id] === targetViewDateStr) {
                isForView = true;
@@ -989,6 +980,13 @@ function startTimerForEvent(eventId){
   const tid = Date.now().toString(); 
   db.timers[tid] = { tid, eventId, startAt: Date.now() }; 
   db.pausedTimers = db.pausedTimers.filter(id => id !== eventId); 
+  
+  // 【修复】启动计时时，如果是常驻任务，自动加入当天的 pulledEvents
+  const ev = db.events.find(e => e.id === eventId);
+  if (ev && (ev.freq === "长期" || ev.freq === "常驻")) {
+      if (!db.pulledEvents.includes(ev.id)) db.pulledEvents.push(ev.id);
+  }
+
   saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree();
 }
 
@@ -1544,9 +1542,12 @@ function renderCatTree(){
     let btnHtml = `<button class="icon-btn secondary" title="计时">▶</button>`;
     if (isRunning) btnHtml = `<button class="icon-btn timer-btn" title="暂停">⏸</button>`;
 
+    // 【修复】把 00:00 视为无效日界，不予显示
+    const showBoundary = ev.dayBoundary && ev.dayBoundary !== "00:00" && ev.dayBoundary !== "00:00:00";
+
     row.innerHTML = `
       <span class="badge ${freqClass}" title="点击编辑" style="cursor:pointer">${ev.freq}</span>
-      <div class="item-title">${ev.name} ${deadlineText} ${ev.dayBoundary ? `<span class="badge" style="background:#e0f2fe;color:#0369a1">${ev.dayBoundary}重置</span>` : ''}</div>
+      <div class="item-title">${ev.name} ${deadlineText} ${showBoundary ? `<span class="badge" style="background:#e0f2fe;color:#0369a1">${ev.dayBoundary}重置</span>` : ''}</div>
       ${btnHtml}
       <input type="checkbox" class="item-checkbox" ${db.batchChecked.has(ev.id) ? "checked" : ""}>
     `;
@@ -1576,7 +1577,12 @@ function renderCatTree(){
       const bodyId = `body_${fullPath.replace(/\//g, '_')}`;
       const isCollapsed = (db.collapsedCats || []).includes(fullPath);
 
+      const childCount = Object.keys(node.children).length;
       const directEvs = db.events.filter(e => e.cat === fullPath && !e.isArchived);
+      
+      const checkedCount = directEvs.filter(e => db.batchChecked.has(e.id)).length;
+      const checkedTag = checkedCount > 0 ? `<span style="color:#94a3b8;font-size:12px;">[已选${checkedCount}]</span>` : "";
+
       const body = document.createElement("div"); 
       body.id = bodyId;
       body.style.display = isCollapsed ? "none" : "block";
@@ -1594,7 +1600,10 @@ function renderCatTree(){
       header.className = "cat-header";
       const titleDiv = document.createElement("div");
       titleDiv.className = "cat-title" + (isCollapsed ? " collapsed-text" : "");
-      titleDiv.innerHTML = `<b>${name}</b>`;
+      const countDisplay = childCount > 0 ? childCount : directEvs.length;
+      
+      // 【修复】补回 (数量) 和 [已选N] 的显示
+      titleDiv.innerHTML = `<b>${name}</b> <span class="meta-small">(${countDisplay})</span> ${checkedTag}`;
       
       titleDiv.onclick = (e) => { e.stopPropagation(); toggleCollapse(bodyId, titleDiv, fullPath); };
 
@@ -1666,38 +1675,75 @@ function closeCatOrderModal() { document.getElementById("catOrderModal").classLi
 
 function moveCat(fullPath, direction) {
   const parts = fullPath.split('/');
-  const targetName = parts.pop();
-  const parentPath = parts.join('/');
-  
-  let siblings = db.categories.filter(c => {
-     if(parentPath === '') {
-         return c.split('/').length === 1;
-     } else {
-         return c.startsWith(parentPath + '/') && c.split('/').length === parts.length + 1;
-     }
+  const parentPath = parts.slice(0, -1).join('/');
+  const level = parts.length;
+
+  // 获取同级分类
+  const siblings = db.categories.filter(c => {
+      if (parentPath === '') return c.split('/').length === 1;
+      return c.startsWith(parentPath + '/') && c.split('/').length === level;
   });
-  
+
   const idx = siblings.indexOf(fullPath);
   if (idx === -1) return;
   const newIdx = idx + direction;
   if (newIdx < 0 || newIdx >= siblings.length) return;
-  
+
+  // 交换同级分类
   const temp = siblings[idx];
   siblings[idx] = siblings[newIdx];
   siblings[newIdx] = temp;
-  
-  let allTop = db.categories.filter(c => c.split('/').length === 1);
-  if (parentPath === '') {
-      allTop = siblings;
-  }
-  
-  let newArr = [];
-  allTop.forEach(topCat => {
-      newArr.push(topCat);
-      const descendants = db.categories.filter(c => c.startsWith(topCat + '/'));
-      newArr = newArr.concat(descendants);
+
+  // 构建树
+  let tree = {};
+  db.categories.forEach(cat => {
+      const p = cat.split('/').filter(Boolean);
+      let cur = tree, path = "";
+      p.forEach(name => {
+          path = path ? path + "/" + name : name;
+          if(!cur[name]) cur[name] = { children: {}, fullPath: path };
+          cur = cur[name].children;
+      });
   });
-  
+
+  // 获取父节点
+  let parentNode = tree;
+  if (parentPath !== '') {
+      for (let p of parentPath.split('/')) {
+          if (!parentNode[p]) return;
+          parentNode = parentNode[p].children;
+      }
+  }
+
+  // 重建父节点下的子节点顺序
+  const newChildrenOrder = siblings.map(s => s.split('/').pop());
+  const oldChildren = parentNode;
+  const newChildren = {};
+  newChildrenOrder.forEach(k => { if(oldChildren[k]) newChildren[k] = oldChildren[k]; });
+  Object.keys(oldChildren).forEach(k => { if(!newChildren[k]) newChildren[k] = oldChildren[k]; });
+
+  // 替换子节点
+  if (parentPath === "") {
+      tree = newChildren;
+  } else {
+      let pNode = tree;
+      const pArr = parentPath.split('/');
+      for (let i = 0; i < pArr.length - 1; i++) {
+          pNode = pNode[pArr[i]].children;
+      }
+      pNode[pArr[pArr.length - 1]].children = newChildren;
+  }
+
+  // 展平树
+  const newArr = [];
+  function flatten(nodeObj) {
+      for (let key in nodeObj) {
+          newArr.push(nodeObj[key].fullPath);
+          flatten(nodeObj[key].children);
+      }
+  }
+  flatten(tree);
+
   db.categories = newArr;
   saveDB(); renderCatTree(); openCatOrderModal();
 }
@@ -1810,6 +1856,8 @@ function undo() {
   const snap = JSON.parse(item.snap);
   snap.batchChecked = new Set(snap.batchChecked);
   db = snap; saveDB(); renderAll(); updateUndoBtn();
+  // 【修复】补回撤销时的提示
+  alert(`已撤销：${item.action}`);
 }
 function updateUndoBtn() {
   const btn = document.getElementById("undoBtn");
