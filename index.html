@@ -627,7 +627,7 @@ function updateBatchCount() {
   if (el) el.innerText = db.batchChecked.size;
 }
 
-/* ================= 折叠 ================= */
+/* ================= 极简原生 DOM 折叠 ================= */
 function toggleCollapse(bodyId, titleEl, fullPath) {
   const body = document.getElementById(bodyId);
   if (!body) return;
@@ -687,7 +687,7 @@ function renderCatTree(){
     row.innerHTML = `
       <span class="badge ${freqClass}" title="点击编辑">${ev.freq}</span>
       <div class="item-title">${ev.name} ${deadlineText}</div>
-      <button class="icon-btn secondary" title="计时">▶</button>
+      <button type="button" class="icon-btn secondary" title="计时">▶</button>
       <input type="checkbox" class="item-checkbox" ${db.batchChecked.has(ev.id) ? "checked" : ""}>
     `;
     row.querySelector(".item-checkbox").onchange = () => toggleBatchCheck(ev.id);
@@ -740,14 +740,16 @@ function renderCatTree(){
       };
 
       const addBtn = document.createElement("button");
+      addBtn.type = "button";
       addBtn.className = "icon-btn secondary";
       addBtn.innerHTML = "＋";
-      addBtn.onclick = (e) => { e.stopPropagation(); addNewEvent(fullPath); };
+      addBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); addNewEvent(fullPath); };
 
       const playBtn = document.createElement("button");
+      playBtn.type = "button";
       playBtn.className = "icon-btn secondary";
       playBtn.innerHTML = "▶";
-      playBtn.onclick = (e) => { e.stopPropagation(); startCatTimer(fullPath); };
+      playBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); startCatTimer(fullPath); };
 
       const catCheck = document.createElement("input");
       catCheck.type = "checkbox";
@@ -775,7 +777,7 @@ function openCatOrderModal() {
     const level = cat.split('/').length;
     const div = document.createElement("div"); div.style.cssText = `padding:8px; padding-left:${level*15+5}px; border-bottom:1px solid #eee; display:flex; align-items:center; gap:8px;`;
     const name = cat.split('/').pop();
-    div.innerHTML = `<span style="flex:1; font-size:14px; color:${level===1?'#333':'#666'}">${name}</span><button class="secondary" style="padding:6px;font-size:12px;" onclick="moveCat('${cat}', -1)">↑</button><button class="secondary" style="padding:6px;font-size:12px;" onclick="moveCat('${cat}', 1)">↓</button>`;
+    div.innerHTML = `<span style="flex:1; font-size:14px; color:${level===1?'#333':'#666'}">${name}</span><button type="button" class="secondary" style="padding:6px;font-size:12px;" onclick="moveCat('${cat}', -1)">↑</button><button type="button" class="secondary" style="padding:6px;font-size:12px;" onclick="moveCat('${cat}', 1)">↓</button>`;
     wrap.appendChild(div);
   });
   document.getElementById("catOrderModal").classList.add("show");
@@ -817,7 +819,7 @@ function renderArchiveList() {
   if (!pool.length) { wrap.innerHTML = '<div class="meta-small" style="padding:10px;text-align:center">无结果</div>'; return; }
   pool.forEach(ev => {
     const div = document.createElement("div"); div.className = "item-row";
-    div.innerHTML = `<div class="item-title">${ev.name} <span class="meta-small">(${ev.cat})</span></div><button class="secondary" style="padding:6px;font-size:12px" onclick="restoreFromArchive('${ev.id}')">恢复</button>`;
+    div.innerHTML = `<div class="item-title">${ev.name} <span class="meta-small">(${ev.cat})</span></div><button type="button" class="secondary" style="padding:6px;font-size:12px" onclick="restoreFromArchive('${ev.id}')">恢复</button>`;
     wrap.appendChild(div);
   });
 }
@@ -882,13 +884,13 @@ function renderTodos(){
     }
 
     div.innerHTML = `
-      <button class="icon-btn secondary" title="开始计时" style="${isDone ? 'display:none' : ''}">▶</button>
+      <button type="button" class="icon-btn secondary" title="开始计时" style="${isDone ? 'display:none' : ''}">▶</button>
       <div class="task-content">
         <span class="badge" title="点击编辑" style="cursor:pointer" onclick="openEditModal('${ev.id}')">${lastCat}</span> ${deadlineText}
         <span class="item-title" style="display:inline-block;font-size:14px;font-weight:500">${ev.name}</span>
         <div class="meta-small">预估${ev.est}分钟 ${ev.note ? `<div style="color:#d32f2f; margin-top:2px;">备注: ${ev.note}</div>` : ''}</div>
       </div>
-      <button class="icon-btn" title="${isDone ? '取消完成' : '标记完成'}" style="${isDone ? 'background:#aaa' : ''}">✓</button>
+      <button type="button" class="icon-btn" title="${isDone ? '取消完成' : '标记完成'}" style="${isDone ? 'background:#aaa' : ''}">✓</button>
     `;
     if (!isDone) div.querySelectorAll("button")[0].onclick = () => startTimerForEvent(ev.id);
     div.querySelectorAll("button")[1].onclick = () => toggleDone(ev.id);
@@ -924,50 +926,62 @@ function recalcLoad(){
 
 /* ================= 计时器与联动 ================= */
 function renderGlobalTimers(){
-  const wrap = document.getElementById("globalTimerList"); 
-  const timers = Object.values(db.timers);
-  if(!timers.length && db.pausedTimers.length === 0) {
-    wrap.innerHTML = "当前无正在计时的任务"; return;
-  }
-  wrap.innerHTML = "";
-  
-  timers.forEach(t => {
-    let evName = t.eventId.startsWith("cat_") ? t.eventId.replace("cat_","") + " 整类" : (db.events.find(e=>e.id===t.eventId)?.name || "未知");
-    const dur = Math.floor((Date.now() - t.startAt)/1000);
-    const h = String(Math.floor(dur/3600)).padStart(2,"0"), m = String(Math.floor((dur%3600)/60)).padStart(2,"0"), s = String(dur%60).padStart(2,"0");
-    const chip = document.createElement("div"); chip.className = "timer-chip";
-    chip.innerHTML = `
-      <button style="color:#166534" title="暂停">▶</button>
-      <span class="name">${evName}</span>
-      <b>${h}:${m}:${s}</b> 
-      <button class="btn-done" title="完成">✅</button>
-      <button title="放弃" style="color:#ef4444">×</button>
-    `;
-    chip.querySelectorAll("button")[0].onclick = () => pauseTimer(t.tid);
-    chip.querySelectorAll("button")[1].onclick = () => finishTimer(t.tid);
-    chip.querySelectorAll("button")[2].onclick = () => stopTimer(t.tid);
-    wrap.appendChild(chip);
-  });
+  try {
+    const wrap = document.getElementById("globalTimerList"); 
+    if (!wrap) return;
+    const timers = Object.values(db.timers || {});
+    const paused = db.pausedTimers || [];
+    if(!timers.length && paused.length === 0) {
+      wrap.innerHTML = "当前无正在计时的任务"; return;
+    }
+    wrap.innerHTML = "";
+    
+    timers.forEach(t => {
+      let evName = t.eventId.startsWith("cat_") ? t.eventId.replace("cat_","") + " 整类" : (db.events.find(e=>e.id===t.eventId)?.name || "未知");
+      const dur = Math.floor((Date.now() - t.startAt)/1000);
+      const h = String(Math.floor(dur/3600)).padStart(2,"0"), m = String(Math.floor((dur%3600)/60)).padStart(2,"0"), s = String(dur%60).padStart(2,"0");
+      const chip = document.createElement("div"); chip.className = "timer-chip";
+      chip.innerHTML = `
+        <button type="button" style="color:#166534" title="暂停">▶</button>
+        <span class="name">${evName}</span>
+        <b>${h}:${m}:${s}</b> 
+        <button type="button" class="btn-done" title="完成">✅</button>
+        <button type="button" title="放弃" style="color:#ef4444">×</button>
+      `;
+      chip.querySelectorAll("button")[0].onclick = () => pauseTimer(t.tid);
+      chip.querySelectorAll("button")[1].onclick = () => finishTimer(t.tid);
+      chip.querySelectorAll("button")[2].onclick = () => stopTimer(t.tid);
+      wrap.appendChild(chip);
+    });
 
-  db.pausedTimers.forEach(evId => {
-    if(timers.some(t=>t.eventId===evId)) return; 
-    const ev = db.events.find(e=>e.id===evId); if(!ev) return;
-    const chip = document.createElement("div"); chip.className = "timer-chip"; chip.style.background = "#f8fafc"; chip.style.borderColor = "#cbd5e1";
-    chip.innerHTML = `
-      <button style="color:#64748b" title="继续">💤</button>
-      <span class="name" style="color:#64748b">${ev.name}</span>
-      <button title="移除" style="margin-left:auto; color:#ef4444">×</button>
-    `;
-    chip.querySelectorAll("button")[0].onclick = () => startTimerForEvent(ev.id);
-    chip.querySelectorAll("button")[1].onclick = () => { db.pausedTimers = db.pausedTimers.filter(id => id !== ev.id); saveDB(); renderGlobalTimers(); };
-    wrap.appendChild(chip);
-  });
+    paused.forEach(evId => {
+      if(timers.some(t=>t.eventId===evId)) return; 
+      const ev = db.events.find(e=>e.id===evId); if(!ev) return;
+      const chip = document.createElement("div"); chip.className = "timer-chip"; chip.style.background = "#f8fafc"; chip.style.borderColor = "#cbd5e1";
+      chip.innerHTML = `
+        <button type="button" style="color:#64748b" title="继续">💤</button>
+        <span class="name" style="color:#64748b">${ev.name}</span>
+        <button type="button" title="移除" style="margin-left:auto; color:#ef4444">×</button>
+      `;
+      chip.querySelectorAll("button")[0].onclick = () => startTimerForEvent(ev.id);
+      chip.querySelectorAll("button")[1].onclick = () => { db.pausedTimers = db.pausedTimers.filter(id => id !== ev.id); saveDB(); renderGlobalTimers(); };
+      wrap.appendChild(chip);
+    });
+  } catch(e) {
+    console.error("Timer render error:", e);
+  }
 }
 
 function startTimerForEvent(eventId){ 
   const tid = Date.now().toString(); 
   db.timers[tid] = { tid, eventId, startAt: Date.now() }; 
   db.pausedTimers = db.pausedTimers.filter(id => id !== eventId); 
+  saveDB(); renderGlobalTimers(); 
+}
+
+function startCatTimer(fullPath){ 
+  const tid = Date.now().toString(); 
+  db.timers[tid] = { tid, eventId: "cat_"+fullPath, startAt: Date.now() }; 
   saveDB(); renderGlobalTimers(); 
 }
 
@@ -1195,7 +1209,7 @@ function renderAxis(){
     div.innerHTML = `
       <input type="checkbox" class="axis-check" value="rec_${r.rid}">
       <div class="item-title" style="font-weight:normal"><b>${String(st.getHours()).padStart(2,"0")}:${String(st.getMinutes()).padStart(2,"0")}</b>：${r.name} (${(r.durationMs/60000).toFixed(0)}分)</div>
-      <button class="secondary" onclick="openAxisEditModal('${r.rid}')">✏️</button>
+      <button type="button" class="secondary" onclick="openAxisEditModal('${r.rid}')">✏️</button>
     `;
     div.querySelector(".item-title").onclick = () => openSingleEventDetail(r.eventId);
     wrap.appendChild(div);
@@ -1615,21 +1629,3 @@ function importBackup(input){
 }
 
 document.querySelectorAll(".tab").forEach(t => {
-  t.onclick = () => {
-    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
-    t.classList.add("active"); document.getElementById(t.dataset.tab).classList.add("active");
-    if(t.dataset.tab === "stats") renderStats(); if(t.dataset.tab === "axis") renderAxis(); if(t.dataset.tab === "todo") renderTodos();
-  };
-});
-
-setInterval(() => renderGlobalTimers(), 1000);
-function renderAll(){ renderCatTree(); renderTodos(); renderGlobalTimers(); renderAxis(); renderStats(); }
-
-loadDB(); 
-document.getElementById("axisDate").value = todayStr(); 
-document.getElementById("statDate").value = todayStr();
-renderAll();
-</script>
-</body>
-</html>
