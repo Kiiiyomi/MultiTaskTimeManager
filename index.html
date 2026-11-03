@@ -403,7 +403,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
-<!-- 其他弹窗保持不变 -->
+<!-- 批量修改弹窗 -->
 <div class="modal-overlay" id="batchModal">
 <div class="modal">
 <h3>批量修改 <span class="meta-small" id="batchCountInfo" style="color:#ef4444; font-weight:bold;"></span></h3>
@@ -417,6 +417,28 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   </div>
 </div>
 <div class="form-group"><label>归档状态</label><select id="batchArchivedSel"><option value="">不修改</option><option value="true">设为归档</option><option value="false">取消归档</option></select></div>
+
+<div class="flex-row" style="gap:10px;">
+  <div class="form-group" style="flex:1">
+    <label>重置日界 (留空不改) <span style="color:#ef4444;cursor:pointer;font-weight:normal;" onclick="document.getElementById('batchDayBoundary').value=''">[清空]</span></label>
+    <input type="time" id="batchDayBoundary" style="padding:6px;">
+  </div>
+  <div class="form-group" style="flex:1">
+    <label>截止时间 (留空不改) <span style="color:#ef4444;cursor:pointer;font-weight:normal;" onclick="document.getElementById('batchDeadline').value=''">[清空]</span></label>
+    <input type="datetime-local" id="batchDeadline" style="padding:6px;">
+  </div>
+</div>
+
+<div class="form-group" style="background:#f8fafc; padding:8px; border-radius:8px; margin-bottom:12px;">
+  <label>批量倒计时换算 (自动填入上方)</label>
+  <div class="flex-row">
+    <input type="number" id="batchCountDay" placeholder="天" style="width:50px; padding:6px;">
+    <input type="number" id="batchCountHour" placeholder="时" style="width:50px; padding:6px;">
+    <input type="number" id="batchCountMin" placeholder="分" style="width:50px; padding:6px;">
+    <button class="secondary" onclick="calcBatchDeadline()" style="padding:6px 12px; font-size:13px;">换算</button>
+  </div>
+</div>
+
 <div class="form-group"><label>预估耗时（留空不改）</label><input type="number" id="batchEst" min="0"></div>
 <div class="flex-row" style="justify-content:space-between; margin-top:15px;">
   <button class="danger" onclick="batchDeleteSelected()">删除选中</button>
@@ -863,6 +885,7 @@ function toggleDone(evId, targetDateStr, isExpired = false){
   if (doneDate === targetDateStr) {
     pushUndo("取消待办"); 
     delete db.doneEvents[evId];
+    // 尝试撤销刚才自动生成的记录
     if (db.records.length > 0) {
       const lastRec = db.records[db.records.length - 1];
       if (lastRec.eventId === evId && lastRec.isAutoDone) db.records.pop();
@@ -871,20 +894,28 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     pushUndo("完成待办"); 
     db.doneEvents[evId] = targetDateStr;
     
+    // 检查是否在计时
     const runningTimer = Object.values(db.timers).find(t => t.eventId === evId);
     if (runningTimer) {
+        // 正在计时，直接结算
         stopTimer(runningTimer.tid, true); 
     } else {
-        let shouldRecord = true;
-        if (isExpired) {
-            shouldRecord = confirm("任务已过期，是否补录预估时间到时间轴？（点取消则不记录时间直接完成）");
-        }
+        // 未计时，检查今天是否已经有过记录
+        const today = todayStr();
+        const hasRecord = db.records.some(r => r.eventId === evId && (dateToStr(new Date(r.start)) === today || dateToStr(new Date(r.end)) === today));
         
-        if (shouldRecord) {
-            const now = new Date(); 
-            const durMs = (ev.est || 30) * 60 * 1000; 
-            const start = new Date(now.getTime() - durMs);
-            db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: ev.cat.split("/").pop(), name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
+        if (!hasRecord) {
+            let shouldRecord = true;
+            if (isExpired) {
+                shouldRecord = confirm("任务已过期，是否补录预估时间到时间轴？（点取消则不记录时间直接完成）");
+            }
+            
+            if (shouldRecord) {
+                const now = new Date(); 
+                const durMs = (ev.est || 30) * 60 * 1000; 
+                const start = new Date(now.getTime() - durMs);
+                db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: ev.cat.split("/").pop(), name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
+            }
         }
     }
   }
@@ -1714,6 +1745,15 @@ function calcDeadline(){
   document.getElementById("editDeadline").value = formatDatetimeLocal(target);
 }
 
+function calcBatchDeadline(){
+  const days = Number(document.getElementById("batchCountDay").value || 0);
+  const hours = Number(document.getElementById("batchCountHour").value || 0);
+  const mins = Number(document.getElementById("batchCountMin").value || 0);
+  if(days === 0 && hours === 0 && mins === 0) return;
+  const target = new Date(Date.now() + (days*24*3600 + hours*3600 + mins*60)*1000);
+  document.getElementById("batchDeadline").value = formatDatetimeLocal(target);
+}
+
 function calcAxisTime(source) {
   const startEl = document.getElementById("addAxisTimeStart");
   const endEl = document.getElementById("addAxisTimeEnd");
@@ -1817,6 +1857,11 @@ function openBatchModal(){
   document.getElementById("batchNewCat").value = ""; document.getElementById("batchFreqSel").value = "";
   document.getElementById("batchQuadSel").value = ""; document.getElementById("batchArchivedSel").value = "";
   document.getElementById("batchEst").value = "";
+  document.getElementById("batchDayBoundary").value = "";
+  document.getElementById("batchDeadline").value = "";
+  document.getElementById("batchCountDay").value = "";
+  document.getElementById("batchCountHour").value = "";
+  document.getElementById("batchCountMin").value = "";
   document.getElementById("batchCountInfo").innerText = `（已选 ${db.batchChecked.size} 个事项）`;
   document.getElementById("batchModal").classList.add("show");
 }
@@ -1835,6 +1880,9 @@ function applyBatchEdit(){
   const arch = document.getElementById("batchArchivedSel").value;
   const estRaw = document.getElementById("batchEst").value.trim(), est = estRaw === "" ? null : Number(estRaw);
   
+  const boundaryVal = document.getElementById("batchDayBoundary").value;
+  const deadlineVal = document.getElementById("batchDeadline").value;
+  
   ids.forEach(id => {
     const ev = db.events.find(e => e.id === id); if(!ev) return;
     if(targetCat) ev.cat = targetCat;
@@ -1842,6 +1890,8 @@ function applyBatchEdit(){
     if(quad !== "") ev.quad = Number(quad);
     if(arch !== "") ev.isArchived = (arch === "true");
     if(est !== null && !isNaN(est)) ev.est = est;
+    if (boundaryVal !== "") ev.dayBoundary = boundaryVal;
+    if (deadlineVal !== "") ev.deadline = deadlineVal;
   });
   saveDB(); closeBatchModal(); renderAll();
 }
