@@ -150,6 +150,23 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .rank-bar-bg { flex:1; height:8px; background:#f1f5f9; margin:0 10px; border-radius:4px; overflow:hidden; }
 .rank-bar-fill { height:100%; border-radius:4px; }
 
+/* Toast 提示 */
+#toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 1000;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    opacity: 0;
+}
+
 @media(min-width: 768px){
   .quadrant-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .chart-row { flex-direction: row; flex-wrap: wrap; }
@@ -176,7 +193,8 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <input type="text" id="searchTree" class="search-input" placeholder="🔍 搜索..." oninput="renderCatTree()">
 <button class="action-icon primary" onclick="openBatchModal()" title="批量修改">✏️</button>
 <button class="action-icon" onclick="openCatOrderModal()" title="分类排序">🔀</button>
-<button id="undoBtn" class="action-icon" onclick="undo()" style="display:none; background:#f59e0b; color:white;" title="撤销">↩️</button>
+<!-- 默认常驻显示，没记录时变灰 -->
+<button id="undoBtn" class="action-icon" onclick="undo()" style="background:#f59e0b; color:white; opacity:0.5; pointer-events:none;" title="撤销">↩️</button>
 </div>
 <div id="catTreeWrap"></div>
 </div>
@@ -492,6 +510,8 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
 const DB_KEY = "multiTaskManagerDB";
 let db = { 
@@ -603,6 +623,16 @@ function loadDB(){
 }
 
 function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); }
+
+/* ================= Toast 提示 ================= */
+function showToast(msg) {
+    const toast = document.getElementById("toast");
+    toast.innerText = msg;
+    toast.style.opacity = "1";
+    setTimeout(() => {
+        toast.style.opacity = "0";
+    }, 2000);
+}
 
 /* ================= 并发与负载计算 ================= */
 function getMergedDuration(records) {
@@ -748,7 +778,7 @@ function getFilteredTasksForDate(targetViewDateStr) {
   db.events.forEach(ev => {
     if (ev.isArchived) return;
     
-    // 【修复】严格判断常驻/长期任务：如果没有被拉取，绝对不能显示在待办里
+    // 严格判断常驻/长期任务：如果没有被拉取，绝对不能显示在待办里
     if ((ev.freq === "长期" || ev.freq === "常驻") && !db.pulledEvents.includes(ev.id)) return;
 
     let isForView = false;
@@ -888,8 +918,17 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     // 检查是否在计时
     const runningTimer = Object.values(db.timers).find(t => t.eventId === evId);
     if (runningTimer) {
-        // 正在计时，直接结算
-        stopTimer(runningTimer.tid, true); 
+        // 内联结算，防止由于 cat 为空导致的代码崩溃，从而阻断刷新
+        const durMs = Date.now() - runningTimer.startAt;
+        if (durMs > 5000) {
+            let cat = "其他", name = "未知";
+            const t = runningTimer;
+            if(t.eventId.startsWith("cat_")){ const fullPath = t.eventId.replace("cat_",""); cat = fullPath.split("/").pop(); name = fullPath + " 整类计时"; }
+            else{ const e = db.events.find(x => x.id === t.eventId); cat = (e && e.cat) ? e.cat.split("/").pop() : "其他"; name = e ? e.name : "未知"; }
+            db.records.push({ rid: "rec_"+Date.now(), eventId: t.eventId, cat, name, start: new Date(t.startAt).toISOString(), end: new Date().toISOString(), durationMs: durMs });
+        }
+        delete db.timers[runningTimer.tid]; 
+        db.pausedTimers = db.pausedTimers.filter(id => id !== evId);
     } else {
         // 未计时，检查今天是否已经有过记录
         const today = todayStr();
@@ -905,12 +944,12 @@ function toggleDone(evId, targetDateStr, isExpired = false){
                 const now = new Date(); 
                 const durMs = (ev.est || 30) * 60 * 1000; 
                 const start = new Date(now.getTime() - durMs);
-                db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: ev.cat.split("/").pop(), name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
+                db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: (ev && ev.cat) ? ev.cat.split("/").pop() : "未分类", name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
             }
         }
     }
   }
-  saveDB(); renderTodos(); renderAxis(); renderStats();
+  saveDB(); renderTodos(); renderAxis(); renderStats(); renderGlobalTimers();
 }
 
 function archiveAllExpired() {
@@ -981,7 +1020,7 @@ function startTimerForEvent(eventId){
   db.timers[tid] = { tid, eventId, startAt: Date.now() }; 
   db.pausedTimers = db.pausedTimers.filter(id => id !== eventId); 
   
-  // 【修复】启动计时时，如果是常驻任务，自动加入当天的 pulledEvents
+  // 启动计时时，如果是常驻任务，自动加入当天的 pulledEvents
   const ev = db.events.find(e => e.id === eventId);
   if (ev && (ev.freq === "长期" || ev.freq === "常驻")) {
       if (!db.pulledEvents.includes(ev.id)) db.pulledEvents.push(ev.id);
@@ -996,7 +1035,7 @@ function pauseTimer(tid){
   if (durMs > 10000) { 
     let cat = "其他", name = "";
     if(t.eventId.startsWith("cat_")){ const fullPath = t.eventId.replace("cat_",""); cat = fullPath.split("/").pop(); name = fullPath + " 整类计时"; }
-    else{ const ev = db.events.find(e => e.id === t.eventId); cat = ev ? ev.cat.split("/").pop() : "其他"; name = ev ? ev.name : "未知"; }
+    else{ const ev = db.events.find(e => e.id === t.eventId); cat = (ev && ev.cat) ? ev.cat.split("/").pop() : "其他"; name = ev ? ev.name : "未知"; }
     db.records.push({ rid: "rec_"+Date.now(), eventId: t.eventId, cat, name, start: new Date(t.startAt).toISOString(), end: new Date().toISOString(), durationMs: durMs });
   }
   if (!db.pausedTimers.includes(t.eventId)) db.pausedTimers.push(t.eventId);
@@ -1021,7 +1060,7 @@ function stopTimer(tid, silent = false){
   const t = db.timers[tid]; if(!t) return;
   const durMs = Date.now() - t.startAt; let cat = "其他", name = "";
   if(t.eventId.startsWith("cat_")){ const fullPath = t.eventId.replace("cat_",""); cat = fullPath.split("/").pop(); name = fullPath + " 整类计时"; }
-  else{ const ev = db.events.find(e => e.id === t.eventId); cat = ev ? ev.cat.split("/").pop() : "其他"; name = ev ? ev.name : "未知"; }
+  else{ const ev = db.events.find(e => e.id === t.eventId); cat = (ev && ev.cat) ? ev.cat.split("/").pop() : "其他"; name = ev ? ev.name : "未知"; }
   if (durMs > 5000) db.records.push({ rid: "rec_"+Date.now(), eventId: t.eventId, cat, name, start: new Date(t.startAt).toISOString(), end: new Date().toISOString(), durationMs: durMs });
   delete db.timers[tid]; db.pausedTimers = db.pausedTimers.filter(id => id !== t.eventId);
   saveDB(); 
@@ -1542,7 +1581,7 @@ function renderCatTree(){
     let btnHtml = `<button class="icon-btn secondary" title="计时">▶</button>`;
     if (isRunning) btnHtml = `<button class="icon-btn timer-btn" title="暂停">⏸</button>`;
 
-    // 【修复】把 00:00 视为无效日界，不予显示
+    // 把 00:00 视为无效日界，不予显示
     const showBoundary = ev.dayBoundary && ev.dayBoundary !== "00:00" && ev.dayBoundary !== "00:00:00";
 
     row.innerHTML = `
@@ -1602,7 +1641,7 @@ function renderCatTree(){
       titleDiv.className = "cat-title" + (isCollapsed ? " collapsed-text" : "");
       const countDisplay = childCount > 0 ? childCount : directEvs.length;
       
-      // 【修复】补回 (数量) 和 [已选N] 的显示
+      // 补回 (数量) 和 [已选N] 的显示
       titleDiv.innerHTML = `<b>${name}</b> <span class="meta-small">(${countDisplay})</span> ${checkedTag}`;
       
       titleDiv.onclick = (e) => { e.stopPropagation(); toggleCollapse(bodyId, titleDiv, fullPath); };
@@ -1847,7 +1886,8 @@ function pushUndo(actionName) {
   const snap = JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) });
   if (undoStack.length > 0 && undoStack[undoStack.length - 1].snap === snap) return;
   undoStack.push({ snap, action: actionName });
-  if (undoStack.length > 10) undoStack.shift();
+  // 限制最多3步
+  if (undoStack.length > 3) undoStack.shift();
   updateUndoBtn();
 }
 function undo() {
@@ -1856,13 +1896,17 @@ function undo() {
   const snap = JSON.parse(item.snap);
   snap.batchChecked = new Set(snap.batchChecked);
   db = snap; saveDB(); renderAll(); updateUndoBtn();
-  // 【修复】补回撤销时的提示
-  alert(`已撤销：${item.action}`);
+  showToast(`已撤销：${item.action}`);
 }
 function updateUndoBtn() {
   const btn = document.getElementById("undoBtn");
-  if (undoStack.length > 0) { btn.style.display = "inline-block"; } 
-  else { btn.style.display = "none"; }
+  if (undoStack.length > 0) { 
+      btn.style.opacity = "1"; 
+      btn.style.pointerEvents = "auto";
+  } else { 
+      btn.style.opacity = "0.5"; 
+      btn.style.pointerEvents = "none";
+  }
 }
 
 /* ================= 其他工具函数 ================= */
