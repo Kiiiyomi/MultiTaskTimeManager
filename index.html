@@ -45,19 +45,15 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .action-icon{background:#f1f5f9;color:#475569;border-radius:8px;padding:8px;font-size:16px;display:inline-flex;align-items:center;justify-content:center;height:36px;}
 .action-icon.primary{background:#409c94;color:white;}
 
-/* ================= 彻底修复四象限排版（移动端默认单列） ================= */
-.quadrant-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* 四象限 */
+.quadrant-grid{display:flex;flex-direction:column;gap:10px;}
 .quadrant{min-height:100px;padding:10px;border-radius:10px;background:#fff;}
 .q1{background:#fef2f2}.q2{background:#eff6ff}.q3{background:#fefce8}.q4{background:#f0fdf4}.q5{background:#f8fafc}
 .task-item{padding:10px;border-radius:8px;background:#fff;margin:6px 0;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px #00000005;}
 .task-item.done{text-decoration:line-through;color:#94a3b8;background:#f8fafc;opacity:0.8}
 .task-item .task-content{flex:1; min-width:0; word-break: break-all;}
 
-/* ================= 分类树排版 ================= */
+/* 分类树 */
 .cat-tree-node{margin:2px 0;padding-left:10px;}
 .cat-header{display:flex;align-items:center;gap:6px;padding:10px 6px;border-radius:8px;user-select:none;}
 .cat-checkbox{width:18px;height:18px;flex-shrink:0;}
@@ -72,7 +68,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .badge.yellow{background:#fef3c7;color:#b45309}
 .badge.green{background:#dcfce7;color:#15803d}
 .item-title{flex:1;font-weight:600;font-size:14px;word-break:break-all;line-height:1.4;}
-
 .meta-small{font-size:12px;color:#94a3b8}
 
 /* 弹窗 */
@@ -108,7 +103,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 
 #ganttTooltip { position:fixed; background:#333; color:#fff; padding:6px 10px; border-radius:6px; font-size:12px; pointer-events:none; display:none; z-index:999; box-shadow:0 2px 8px rgba(0,0,0,0.2); white-space:pre-wrap; line-height:1.4; }
 
-/* 只有宽屏（平板/电脑）才变成左右两列 */
 @media(min-width: 768px){
   .quadrant-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .chart-row { flex-direction: row; flex-wrap: wrap; }
@@ -174,7 +168,8 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <input type="date" id="axisDate" style="padding:8px;">
 <button onclick="renderAxis()">刷新</button>
 <button class="secondary" onclick="openAxisAddModal()" style="background:#4caf50">＋ 补录</button>
-<button class="danger" onclick="deleteAxisSelected()">删除选中</button>
+<button class="danger" onclick="deleteAxisSelected()">批量删除选中</button>
+<span class="meta-small" id="axisSelectedCount">已选 0 项</span>
 </div>
 <div id="axisWrap" style="margin-top:10px"></div>
 </div>
@@ -632,7 +627,7 @@ function updateBatchCount() {
   if (el) el.innerText = db.batchChecked.size;
 }
 
-/* ================= 极简原生 DOM 折叠 ================= */
+/* ================= 折叠 ================= */
 function toggleCollapse(bodyId, titleEl, fullPath) {
   const body = document.getElementById(bodyId);
   if (!body) return;
@@ -1187,6 +1182,7 @@ function renderAxis(){
     const hasRecord = dayRecs.some(r => r.eventId === ev.id);
     const div = document.createElement("div"); div.className = "time-axis-item" + (hasRecord ? " planned" : "");
     div.innerHTML = `
+      <input type="checkbox" class="axis-check" value="plan_${ev.id}">
       <div class="item-title" style="font-weight:normal">计划 ${ev.actionDateTime.slice(11,16)}：${ev.name}</div>
     `;
     div.querySelector(".item-title").onclick = () => openSingleEventDetail(ev.id);
@@ -1197,6 +1193,7 @@ function renderAxis(){
     const st = new Date(r.start);
     const div = document.createElement("div"); div.className = "time-axis-item"; div.style.borderLeftColor = "#3b82f6";
     div.innerHTML = `
+      <input type="checkbox" class="axis-check" value="rec_${r.rid}">
       <div class="item-title" style="font-weight:normal"><b>${String(st.getHours()).padStart(2,"0")}:${String(st.getMinutes()).padStart(2,"0")}</b>：${r.name} (${(r.durationMs/60000).toFixed(0)}分)</div>
       <button class="secondary" onclick="openAxisEditModal('${r.rid}')">✏️</button>
     `;
@@ -1205,6 +1202,11 @@ function renderAxis(){
   });
 
   if(!plannedTasks.length && !dayRecs.length) wrap.innerHTML = '<div class="meta-small">这一天暂无计划与记录</div>';
+  
+  wrap.querySelectorAll('.axis-check').forEach(cb => {
+    cb.onchange = () => { document.getElementById("axisSelectedCount").innerText = `已选 ${wrap.querySelectorAll('.axis-check:checked').length} 项`; }
+  });
+  document.getElementById("axisSelectedCount").innerText = `已选 0 项`;
 }
 
 function openAxisAddModal(){
@@ -1288,6 +1290,22 @@ function saveAxisEdit() {
   r.durationMs = newDur*60000;
   
   saveDB(); closeAxisEditModal(); renderAxis(); renderStats();
+}
+
+function deleteAxisSelected(){
+  const checks = Array.from(document.querySelectorAll('.axis-check:checked')).map(cb => cb.value);
+  if(!checks.length) return alert("请先勾选要删除的项");
+  if(!confirm(`确定删除选中的 ${checks.length} 项吗？`)) return;
+  pushUndo("删除时间轴记录");
+  const planIds = checks.filter(v => v.startsWith('plan_')).map(v => v.replace('plan_', ''));
+  const recIds = checks.filter(v => v.startsWith('rec_')).map(v => v.replace('rec_', ''));
+  if(planIds.length){
+    planIds.forEach(id => { const ev = db.events.find(e => e.id === id); if(ev) ev.actionDateTime = ""; });
+  }
+  if(recIds.length){
+    db.records = db.records.filter(r => !recIds.includes(r.rid));
+  }
+  saveDB(); renderAxis(); renderStats();
 }
 
 /* ================= 纯文字统计 + 全新并发计算 + 热力图 ================= */
