@@ -633,17 +633,20 @@ function updateBatchCount() {
 }
 
 /* ================= 极简原生 DOM 折叠 ================= */
-function toggleCollapse(bodyId, titleEl) {
+function toggleCollapse(bodyId, titleEl, fullPath) {
   const body = document.getElementById(bodyId);
   if (!body) return;
   const isHidden = body.style.display === "none";
   if (isHidden) {
     body.style.display = "block";
     titleEl.classList.remove("collapsed-text");
+    db.collapsedCats = db.collapsedCats.filter(c => c !== fullPath);
   } else {
     body.style.display = "none";
     titleEl.classList.add("collapsed-text");
+    if (!db.collapsedCats.includes(fullPath)) db.collapsedCats.push(fullPath);
   }
+  saveDB(); 
 }
 
 function renderCatTree(){
@@ -738,7 +741,7 @@ function renderCatTree(){
       titleDiv.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggleCollapse(bodyId, titleDiv);
+        toggleCollapse(bodyId, titleDiv, fullPath); 
       };
 
       const addBtn = document.createElement("button");
