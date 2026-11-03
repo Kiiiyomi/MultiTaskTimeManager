@@ -178,6 +178,8 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   <div class="flex-row" style="justify-content:space-between;margin-bottom:6px">
     <div class="flex-row">
       <button class="secondary" onclick="openAddTasksModal()" style="background:#4caf50; font-size:13px; padding:6px 10px;">＋ 任务池</button>
+      <!-- 低调的清理按钮 -->
+      <button class="secondary" onclick="archiveAllExpired()" style="font-size:12px; padding:4px 8px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; margin-left:auto; font-weight:normal;">🧹 清理过期</button>
     </div>
     <select id="todoCatFilter" onchange="renderTodos()" style="padding:6px; font-size:14px; border-radius:8px;">
       <option value="all">全部分类</option>
@@ -446,7 +448,7 @@ const DB_KEY = "multiTaskManagerDB";
 let db = { 
   categories: ["工作/项目", "学习/阅读", "生活/日常"], 
   events: [], records: [], timers: {}, pausedTimers: [],
-  doneEvents: {}, pulledEvents: [], settings: { sleepNeed:7.5 }, 
+  doneEvents: {}, pulledEvents: [], settings: { sleepNeed:7.5, lastActiveDate: '' }, 
   batchChecked: [], selectedCats: [], collapsedCats: []
 };
 let currentEditEventId = null;
@@ -454,9 +456,9 @@ let currentSingleEventId = null;
 let currentAxisEditRid = null;
 let undoStack = [];
 let isNewEventMode = false;
-let currentTodoOffset = 0; // -1昨天 0今天 1明天
+let currentTodoOffset = 0;
 let pieChart;
-let currentAxisScale = 3; // 时间轴缩放比例
+let currentAxisScale = 3;
 
 function getWeekKey(dateStr) {
   const d = new Date(dateStr);
@@ -471,7 +473,6 @@ function formatDuration(ms) {
   return `${Math.floor(totalMin/60)}小时${totalMin%60}分钟`;
 }
 
-// 时间轴紧凑全称显示
 function formatDurationCN(ms) {
   const totalMin = Math.round(ms / 60000);
   if(totalMin < 60) return `${totalMin}分钟`;
@@ -497,7 +498,6 @@ function getFullTimeStr() {
   return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`; 
 }
 
-// 核心：根据事项的日界获取该事项视角的“今天”
 function getEvTodayStr(ev, date = new Date()) {
   let boundary = ev.dayBoundary || "00:00";
   let [bh, bm] = boundary.split(':').map(Number);
@@ -508,10 +508,47 @@ function getEvTodayStr(ev, date = new Date()) {
   return dateToStr(d);
 }
 
+function processDailyTransition() {
+  const todayS = todayStr();
+  if (db.settings.lastActiveDate === todayS) return;
+  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = dateToStr(yesterday);
+
+  db.events.forEach(ev => {
+    if (ev.freq === "常驻" && !ev.isArchived) {
+       if (db.doneEvents[ev.id] !== yesterdayStr && !db.pulledEvents.includes(ev.id)) {
+           db.pulledEvents.push(ev.id);
+       }
+    }
+  });
+
+  Object.keys(db.doneEvents).forEach(evId => {
+    const doneDateStr = db.doneEvents[evId];
+    const ev = db.events.find(e => e.id === evId);
+    if (!ev) { delete db.doneEvents[evId]; return; }
+    if (doneDateStr === todayS) return; 
+
+    if (ev.freq === "长期") ev.isArchived = true;
+
+    let reset = false;
+    if (ev.freq === "每日" && doneDateStr < todayS) reset = true;
+    if (ev.freq === "每周") { if (getWeekKey(doneDateStr) !== getWeekKey(todayS)) reset = true; }
+    if (ev.freq === "每月") {
+        const d1 = new Date(doneDateStr), d2 = new Date(todayS);
+        if (d1.getMonth() !== d2.getMonth() || d1.getFullYear() !== d2.getFullYear()) reset = true;
+    }
+    if (reset) delete db.doneEvents[evId];
+  });
+  
+  db.settings.lastActiveDate = todayS; saveDB();
+}
+
 function loadDB(){
   const raw = localStorage.getItem(DB_KEY);
   if(raw){ try{ db = JSON.parse(raw); }catch(e){} }
-  if(!db.settings) db.settings = {sleepNeed:7.5};
+  if(!db.settings) db.settings = {sleepNeed:7.5, lastActiveDate: ''};
   if(!db.doneEvents) db.doneEvents = {};
   if(!db.categories) db.categories = [];
   if(!db.events) db.events = [];
@@ -524,6 +561,7 @@ function loadDB(){
   db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []);
   
   document.getElementById("sleepNeed").value = db.settings.sleepNeed;
+  processDailyTransition();
 }
 
 function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); }
@@ -668,10 +706,13 @@ function renderTodos(){
     div.className = "task-item" + (isDone ? " done" : "");
     
     let deadlineText = "";
+    let isExpired = false;
     if(ev.deadline){
       const diff = new Date(ev.deadline).getTime() - Date.now();
-      if(diff < 0) deadlineText = `<span class="badge red">已过期</span>`;
-      else {
+      if(diff < 0) {
+        deadlineText = `<span class="badge red">已过期</span>`;
+        isExpired = true;
+      } else {
         const d = Math.floor(diff / 86400000);
         const h = Math.floor((diff % 86400000) / 3600000);
         const m = Math.floor((diff % 3600000) / 60000);
@@ -714,13 +755,13 @@ function renderTodos(){
             }
         };
     }
-    div.querySelectorAll("button")[1].onclick = () => toggleDone(ev.id, viewDateStr);
+    div.querySelectorAll("button")[1].onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
     document.getElementById(qs[ev.quad ?? 2] || "q0").appendChild(div);
   });
   recalcLoad();
 }
 
-function toggleDone(evId, targetDateStr){
+function toggleDone(evId, targetDateStr, isExpired = false){
   const ev = db.events.find(e => e.id === evId); if(!ev) return;
   const doneDate = db.doneEvents[evId];
   
@@ -739,13 +780,39 @@ function toggleDone(evId, targetDateStr){
     if (runningTimer) {
         stopTimer(runningTimer.tid, true); 
     } else {
-        const now = new Date(); 
-        const durMs = (ev.est || 30) * 60 * 1000; 
-        const start = new Date(now.getTime() - durMs);
-        db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: ev.cat.split("/").pop(), name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
+        let shouldRecord = true;
+        if (isExpired) {
+            shouldRecord = confirm("任务已过期，是否补录预估时间到时间轴？（点取消则不记录时间直接完成）");
+        }
+        
+        if (shouldRecord) {
+            const now = new Date(); 
+            const durMs = (ev.est || 30) * 60 * 1000; 
+            const start = new Date(now.getTime() - durMs);
+            db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: ev.cat.split("/").pop(), name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
+        }
     }
   }
   saveDB(); renderTodos(); renderAxis(); renderStats();
+}
+
+function archiveAllExpired() {
+  const today = todayStr();
+  const expiredEvents = db.events.filter(ev => 
+    !ev.isArchived && ev.deadline && new Date(ev.deadline).getTime() < Date.now()
+  );
+  
+  if (expiredEvents.length === 0) return alert("当前没有已过期的任务");
+  if (!confirm(`发现 ${expiredEvents.length} 个已过期任务，确定全部标记完成并归档吗？\n（不会记录时间）`)) return;
+
+  pushUndo("清理过期");
+  expiredEvents.forEach(ev => {
+    db.doneEvents[ev.id] = today;
+    ev.isArchived = true;
+  });
+  saveDB();
+  renderTodos(); renderCatTree(); renderAxis(); renderStats();
+  alert("已清理并归档所有过期任务。");
 }
 
 /* ================= 计时与联动 ================= */
@@ -982,7 +1049,6 @@ function renderAxis(){
       const topPx = startMin * currentAxisScale; 
       const realHeight = durationMin * currentAxisScale;
       
-      // 欺骗性高度：最小拉到 22px 保证能显示一行字
       const blockHeight = Math.max(realHeight, 22);
       
       const block = document.createElement("div");
@@ -1001,24 +1067,20 @@ function renderAxis(){
           block.style.color = '#1e293b';
       }
       
-      // 智能显示 1/2/3 行 (基于真实高度判断)
       let html = `<div class="ev-title">${ev.title}</div>`;
       const durStr = formatDurationCN(durationMin * 60000);
       
       if (realHeight >= 65) {
-          // 3行：大字
           const stStr = `${String(Math.floor(startMin/60)).padStart(2,'0')}:${String(Math.floor(startMin%60)).padStart(2,'0')}`;
           const etStr = `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(Math.floor(endMin%60)).padStart(2,'0')}`;
           html += `<div class="ev-dur" style="font-size:11px;">${durStr}</div><div class="ev-time" style="font-size:10px;">${stStr}-${etStr}</div>`;
           block.style.fontSize = "12px";
           block.style.padding = "4px 6px";
       } else if (realHeight >= 42) {
-          // 2行：中字
           html += `<div class="ev-dur" style="font-size:10px;">${durStr}</div>`;
           block.style.fontSize = "11px";
           block.style.padding = "2px 4px";
       } else {
-          // 1行：极小字
           block.style.fontSize = "10px";
           block.style.padding = "1px 3px";
           block.style.lineHeight = "1.1";
@@ -1813,7 +1875,7 @@ function importBackup(input){
   r.onload = e => {
     try{
       pushUndo("导入备份"); const data = JSON.parse(e.target.result); db = data;
-      db.settings = db.settings || {sleepNeed:7.5}; db.doneEvents = db.doneEvents || {}; db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
+      db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: ''}; db.doneEvents = db.doneEvents || {}; db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
       db.pausedTimers = db.pausedTimers || []; db.pulledEvents = db.pulledEvents || []; db.selectedCats = db.selectedCats || []; db.collapsedCats = db.collapsedCats || [];
       db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; if(ev.quad === undefined) ev.quad = 2; if(ev.est === undefined) ev.est = 30; if(!ev.freq) ev.freq = ev.repeatPlan || "每日"; if(ev.note === undefined) ev.note = ""; if(ev.dayBoundary === undefined) ev.dayBoundary = "";});
       db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []); 
