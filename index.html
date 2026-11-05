@@ -129,7 +129,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
-  justify-content: center; /* 极短事件垂直居中 */
+  justify-content: center;
 }
 .ev-block.plan { 
   background: transparent !important; 
@@ -583,10 +583,10 @@ let dragSrcEl = null;
 let dragData = null;
 
 function getWeekKey(dateStr) {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay() || 7; 
   d.setDate(d.getDate() - day + 1);
-  return d.toISOString().slice(0,10);
+  return dateToStr(d);
 }
 
 function formatDuration(ms) {
@@ -630,34 +630,65 @@ function getEvTodayStr(ev, date = new Date()) {
   return dateToStr(d);
 }
 
+/* ================= 清理策略 ================= */
+// 打卡记录：每日/长期/常驻保留昨天今天明天；每周保留本周；每月保留本月；限时保留全部
+// 时间轴与统计：只保留最近 365 天
+function cleanupOldData() {
+  const todayS = todayStr();
+  const todayD = new Date(todayS + 'T00:00:00');
+
+  const minDate = new Date(todayD); minDate.setDate(minDate.getDate() - 1);
+  const maxDate = new Date(todayD); maxDate.setDate(maxDate.getDate() + 1);
+  const minStr = dateToStr(minDate);
+  const maxStr = dateToStr(maxDate);
+
+  Object.keys(db.doneEvents).forEach(evId => {
+    const ev = db.events.find(e => e.id === evId);
+    if (!ev) { delete db.doneEvents[evId]; return; }
+
+    let doneDates = db.doneEvents[evId];
+    if (!Array.isArray(doneDates)) doneDates = doneDates ? [doneDates] : [];
+    doneDates = doneDates.filter(dStr =>
+      typeof dStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dStr)
+    );
+
+    let kept;
+    if (ev.freq === '每日' || ev.freq === '长期' || ev.freq === '常驻') {
+      kept = doneDates.filter(dStr => dStr >= minStr && dStr <= maxStr);
+    } else if (ev.freq === '每周') {
+      const weekKey = getWeekKey(todayS);
+      kept = doneDates.filter(dStr => getWeekKey(dStr) === weekKey);
+    } else if (ev.freq === '每月') {
+      const y = todayD.getFullYear(), m = todayD.getMonth();
+      kept = doneDates.filter(dStr => {
+        const d = new Date(dStr + 'T00:00:00');
+        return d.getFullYear() === y && d.getMonth() === m;
+      });
+    } else {
+      // 限时：保留全部完成记录，避免完成后三天又出现
+      kept = doneDates;
+    }
+
+    if (kept.length === 0) delete db.doneEvents[evId];
+    else db.doneEvents[evId] = kept;
+  });
+
+  // 时间轴与统计记录：只保留最近 365 天
+  const cutoff = new Date(todayD);
+  cutoff.setDate(cutoff.getDate() - 365);
+  cutoff.setHours(0, 0, 0, 0);
+  db.records = db.records.filter(r => {
+    const st = new Date(r.start);
+    return !isNaN(st.getTime()) && st >= cutoff;
+  });
+}
+
 function processDailyTransition() {
   const todayS = todayStr();
   if (db.settings.lastActiveDate === todayS) return;
-  
-  Object.keys(db.doneEvents).forEach(evId => {
-    let doneDates = db.doneEvents[evId];
-    if (!Array.isArray(doneDates)) {
-      doneDates = doneDates ? [doneDates] : [];
-      db.doneEvents[evId] = doneDates;
-    }
-    const ev = db.events.find(e => e.id === evId);
-    if (!ev) { delete db.doneEvents[evId]; return; }
-    
-    // 清理不属于当前周期的已完成记录
-    const todayD = new Date(todayS);
-    db.doneEvents[evId] = doneDates.filter(dStr => {
-      if (ev.freq === "每日") return dStr === todayS; // 只保留今天的
-      if (ev.freq === "每周") return getWeekKey(dStr) === getWeekKey(todayS); // 只保留这周的
-      if (ev.freq === "每月") {
-          const d1 = new Date(dStr);
-          return d1.getMonth() === todayD.getMonth() && d1.getFullYear() === todayD.getFullYear();
-      }
-      return true; // 限时/长期保留
-    });
-    if (db.doneEvents[evId].length === 0) delete db.doneEvents[evId];
-  });
-  
-  db.settings.lastActiveDate = todayS; saveDB();
+  cleanupOldData();
+  db.settings.lastActiveDate = todayS;
+  saveDB();
 }
 
 function loadDB(){
@@ -676,7 +707,10 @@ function loadDB(){
   if(!db.selectedCats) db.selectedCats = [];
   if(!db.collapsedCats) db.collapsedCats = [];
   db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []);
-  
+
+  // 兜底：确保事件分类字段有值，防止渲染时抛错
+  db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; });
+
   document.getElementById("sleepNeed").value = db.settings.sleepNeed;
   processDailyTransition();
 }
@@ -860,7 +894,7 @@ function getFilteredTasksForDate(targetViewDateStr) {
                if (ev.freq === "每日") isForView = true;
                if (ev.freq === "每周" && getWeekKey(targetViewDateStr) === getWeekKey(realNowStr)) isForView = true;
                if (ev.freq === "每月") {
-                   const d1 = new Date(targetViewDateStr), d2 = realNow;
+                   const d1 = new Date(targetViewDateStr + 'T00:00:00'), d2 = realNow;
                    if(d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear()) isForView = true;
                }
            }
@@ -926,7 +960,7 @@ function renderTodos(){
   const tasks = getFilteredTasksForDate(viewDateStr);
 
   tasks.forEach(({ev, isDone}) => {
-    const lastCat = ev.cat.split("/").pop();
+    const lastCat = (ev.cat || "未分类").split("/").pop();
     const div = document.createElement("div");
     div.className = "task-item" + (isDone ? " done" : "");
     
@@ -986,68 +1020,114 @@ function renderTodos(){
   recalcLoad();
 }
 
+function hasRecordOnDate(eventId, dateStr) {
+  const dayStart = new Date(dateStr + 'T00:00:00').getTime();
+  const dayEnd = dayStart + 24 * 3600 * 1000;
+  return db.records.some(r => {
+    if (r.eventId !== eventId) return false;
+    const st = new Date(r.start).getTime();
+    const et = new Date(r.end).getTime();
+    return st < dayEnd && et > dayStart;
+  });
+}
+
 function toggleDone(evId, targetDateStr, isExpired = false){
   const ev = db.events.find(e => e.id === evId); if(!ev) return;
-  
+
+  // 日界修复：今天视图按事项逻辑日记账；昨天/明天视图按视图日期记账
+  const recordDateStr = (targetDateStr === todayStr()) ? getEvTodayStr(ev) : targetDateStr;
+
   let doneDates = db.doneEvents[evId];
   if (!Array.isArray(doneDates)) {
-      doneDates = doneDates ? [doneDates] : [];
-      db.doneEvents[evId] = doneDates;
+    doneDates = doneDates ? [doneDates] : [];
+    db.doneEvents[evId] = doneDates;
   }
 
-  const isDone = doneDates.includes(targetDateStr);
-  
+  const isDone = doneDates.includes(recordDateStr);
+
   if (isDone) {
-    pushUndo("取消待办"); 
-    db.doneEvents[evId] = doneDates.filter(d => d !== targetDateStr);
+    pushUndo("取消待办");
+    db.doneEvents[evId] = doneDates.filter(d => d !== recordDateStr);
     if (db.doneEvents[evId].length === 0) delete db.doneEvents[evId];
-    // 尝试撤销刚才自动生成的记录
-    if (db.records.length > 0) {
-      const lastRec = db.records[db.records.length - 1];
-      if (lastRec.eventId === evId && lastRec.isAutoDone) db.records.pop();
+
+    // 撤销自动补录记录：倒序查找该事项的自动记录，避免误删其他记录
+    for (let i = db.records.length - 1; i >= 0; i--) {
+      if (db.records[i].eventId === evId && db.records[i].isAutoDone) {
+        db.records.splice(i, 1);
+        break;
+      }
     }
   } else {
-    pushUndo("完成待办"); 
+    pushUndo("完成待办");
     if (!db.doneEvents[evId]) db.doneEvents[evId] = [];
-    db.doneEvents[evId].push(targetDateStr);
-    
+    db.doneEvents[evId].push(recordDateStr);
+
     // 检查是否在计时
     const runningTimer = Object.values(db.timers).find(t => t.eventId === evId);
     if (runningTimer) {
-        const durMs = Date.now() - runningTimer.startAt;
-        if (durMs > 5000) {
-            let cat = "其他", name = "未知";
-            const t = runningTimer;
-            if(t.eventId.startsWith("cat_")){ const fullPath = t.eventId.replace("cat_",""); cat = fullPath.split("/").pop(); name = fullPath + " 整类计时"; }
-            else{ const e = db.events.find(x => x.id === t.eventId); cat = (e && e.cat) ? e.cat.split("/").pop() : "其他"; name = e ? e.name : "未知"; }
-            db.records.push({ rid: "rec_"+Date.now(), eventId: t.eventId, cat, name, start: new Date(t.startAt).toISOString(), end: new Date().toISOString(), durationMs: durMs });
+      const durMs = Date.now() - runningTimer.startAt;
+      if (durMs > 5000) {
+        let cat = "其他", name = "未知";
+        const t = runningTimer;
+        if(t.eventId.startsWith("cat_")){
+          const fullPath = t.eventId.replace("cat_","");
+          cat = fullPath.split("/").pop();
+          name = fullPath + " 整类计时";
+        } else {
+          const e = db.events.find(x => x.id === t.eventId);
+          cat = (e && e.cat) ? e.cat.split("/").pop() : "其他";
+          name = e ? e.name : "未知";
         }
-        delete db.timers[runningTimer.tid]; 
-        db.pausedTimers = db.pausedTimers.filter(id => id !== evId);
+        db.records.push({
+          rid: "rec_"+Date.now(), eventId: t.eventId, cat, name,
+          start: new Date(t.startAt).toISOString(),
+          end: new Date().toISOString(),
+          durationMs: durMs
+        });
+      }
+      delete db.timers[runningTimer.tid];
+      db.pausedTimers = db.pausedTimers.filter(id => id !== evId);
     } else {
-        const today = todayStr();
-        const hasRecord = db.records.some(r => r.eventId === evId && (dateToStr(new Date(r.start)) === today || dateToStr(new Date(r.end)) === today));
-        
-        if (!hasRecord) {
-            let shouldRecord = true;
-            if (isExpired) {
-                shouldRecord = confirm("任务已过期，是否补录预估时间到时间轴？（点取消则不记录时间直接完成）");
-            }
-            
-            if (shouldRecord) {
-                const now = new Date(); 
-                const durMs = (ev.est || 30) * 60 * 1000; 
-                const start = new Date(now.getTime() - durMs);
-                db.records.push({ rid: "rec_" + Date.now(), eventId: ev.id, cat: (ev && ev.cat) ? ev.cat.split("/").pop() : "未分类", name: ev.name, start: start.toISOString(), end: now.toISOString(), durationMs: durMs, isAutoDone: true });
-            }
+      // 按事项逻辑日判断是否已有记录，避免日界前后重复补录
+      if (!hasRecordOnDate(evId, recordDateStr)) {
+        let shouldRecord = true;
+        if (isExpired) {
+          shouldRecord = confirm("任务已过期，是否补录预估时间到时间轴？（点取消则不记录时间直接完成）");
         }
+
+        if (shouldRecord) {
+          // 补录日期与视图日期对齐，避免在“昨天”标记完成时落到今天
+          let endTime;
+          if (targetDateStr === todayStr()) {
+            endTime = new Date();
+          } else {
+            const [y, m, d] = targetDateStr.split('-').map(Number);
+            const n = new Date();
+            endTime = new Date(y, m - 1, d, n.getHours(), n.getMinutes(), n.getSeconds());
+          }
+          const durMs = (ev.est || 30) * 60 * 1000;
+          const start = new Date(endTime.getTime() - durMs);
+          db.records.push({
+            rid: "rec_" + Date.now(), eventId: ev.id,
+            cat: (ev && ev.cat) ? ev.cat.split("/").pop() : "未分类",
+            name: ev.name,
+            start: start.toISOString(),
+            end: endTime.toISOString(),
+            durationMs: durMs,
+            isAutoDone: true
+          });
+        }
+      }
     }
   }
-  saveDB(); renderTodos(); renderAxis(); renderStats(); renderGlobalTimers();
+  saveDB();
+  renderTodos();
+  renderAxis();
+  renderStats();
+  renderGlobalTimers();
 }
 
 function archiveAllExpired() {
-  const today = todayStr();
   const expiredEvents = db.events.filter(ev => 
     !ev.isArchived && ev.deadline && new Date(ev.deadline).getTime() < Date.now()
   );
@@ -1057,12 +1137,18 @@ function archiveAllExpired() {
 
   pushUndo("清理过期");
   expiredEvents.forEach(ev => {
-    if (!Array.isArray(db.doneEvents[ev.id])) db.doneEvents[ev.id] = db.doneEvents[ev.id] ? [db.doneEvents[ev.id]] : [];
-    if (!db.doneEvents[ev.id].includes(today)) db.doneEvents[ev.id].push(today);
+    const evToday = getEvTodayStr(ev);
+    if (!Array.isArray(db.doneEvents[ev.id])) {
+      db.doneEvents[ev.id] = db.doneEvents[ev.id] ? [db.doneEvents[ev.id]] : [];
+    }
+    if (!db.doneEvents[ev.id].includes(evToday)) db.doneEvents[ev.id].push(evToday);
     ev.isArchived = true;
   });
   saveDB();
-  renderTodos(); renderCatTree(); renderAxis(); renderStats();
+  renderTodos();
+  renderCatTree();
+  renderAxis();
+  renderStats();
   alert("已清理并归档所有过期任务。");
 }
 
@@ -1241,7 +1327,7 @@ function renderAxis(){
               type: 'planned',
               id: ev.id,
               title: '计划: ' + ev.name,
-              cat: ev.cat.split("/").pop(),
+              cat: (ev.cat || "未分类").split("/").pop(),
               startMs: st,
               endMs: et
           });
@@ -1371,7 +1457,6 @@ function openAxisAddModal(){
   datalist.innerHTML = options;
   document.getElementById("addAxisEvName").value = "";
   
-  // 优先用当前时间作为结束时间，开始时间根据最后一条记录计算
   const now = new Date();
   const nowStr = formatDatetimeLocal(now);
   document.getElementById("addAxisTimeEnd").value = nowStr;
@@ -1386,7 +1471,7 @@ function openAxisAddModal(){
   }
   
   document.getElementById("addAxisDur").value = "30";
-  calcAxisTime('end'); // 重新算耗时
+  calcAxisTime('end');
   
   document.getElementById("axisAddModal").classList.add("show");
 }
@@ -1408,7 +1493,7 @@ function saveAxisAdd(){
   pushUndo("补录时间轴");
   
   let matchedEv = db.events.find(e => e.name === name);
-  let cat = matchedEv ? matchedEv.cat.split("/").pop() : "补录";
+  let cat = matchedEv ? ((matchedEv.cat || "未分类").split("/").pop()) : "补录";
   if (!matchedEv && db.categories.includes(name)) {
       cat = name.split("/").pop();
   }
@@ -1456,7 +1541,7 @@ function saveAxisEdit() {
   
   pushUndo("改时间轴");
   const matchedEv = db.events.find(e => e.name === newName);
-  if(matchedEv) { r.eventId = matchedEv.id; r.name = matchedEv.name; r.cat = matchedEv.cat.split("/").pop(); } 
+  if(matchedEv) { r.eventId = matchedEv.id; r.name = matchedEv.name; r.cat = (matchedEv.cat || "未分类").split("/").pop(); } 
   else { 
       r.name = newName; 
       if (db.categories.includes(newName)) r.cat = newName.split("/").pop();
@@ -1484,6 +1569,7 @@ function openEditModal(evId){
   document.getElementById("editModalTitle").innerText = "编辑事项";
   document.getElementById("editName").value = ev.name;
   const catSel = document.getElementById("editCat"); catSel.innerHTML = "";
+  if(!ev.cat) ev.cat = "未分类";
   if(!db.categories.includes(ev.cat)) db.categories.push(ev.cat);
   db.categories.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.textContent = c; if(c === ev.cat) opt.selected = true; catSel.appendChild(opt); });
   
@@ -1550,15 +1636,16 @@ function renderStats(){
   
   if (rangeType === "day") {
     const dStr = document.getElementById("statDate").value || todayStr();
-    startDate = new Date(dStr); endDate = new Date(dStr);
+    startDate = new Date(dStr + 'T00:00:00');
+    endDate = new Date(dStr + 'T00:00:00');
     isSingleDay = true;
   } else if (rangeType === "7" || rangeType === "30") {
-    endDate = new Date(todayStr());
+    endDate = new Date(todayStr() + 'T00:00:00');
     startDate = new Date(endDate.getTime() - (Number(rangeType)-1) * 24 * 3600 * 1000);
     isSingleDay = false;
   } else if (rangeType === "custom") {
-    startDate = new Date(document.getElementById("statStartDate").value || todayStr());
-    endDate = new Date(document.getElementById("statEndDate").value || todayStr());
+    startDate = new Date((document.getElementById("statStartDate").value || todayStr()) + 'T00:00:00');
+    endDate = new Date((document.getElementById("statEndDate").value || todayStr()) + 'T00:00:00');
     isSingleDay = (startDate.getTime() === endDate.getTime());
   }
   startDate.setHours(0,0,0,0); endDate.setHours(23,59,59,999);
@@ -1644,7 +1731,6 @@ function renderStats(){
 
   const concArray = Object.entries(concurrentMap).sort((a,b) => b[1] - a[1]);
   const concHtml = concArray.map(([k, v]) => {
-      // 计算串行总耗时
       const names = k.split(" + ");
       let serialMs = 0;
       names.forEach(n => {
@@ -1663,7 +1749,6 @@ function renderStats(){
   }).join("");
   document.getElementById("concurrencyList").innerHTML = concHtml || "<div style='color:#94a3b8'>无并发情况</div>";
 
-  // 恢复热力图
   if (isSingleDay) {
     renderHeatmap(recs, startDate);
   }
@@ -1770,12 +1855,11 @@ function renderCatTree(){
         row.classList.remove("drag-over");
         row.style.opacity = '1';
         if (dragData && dragData.type === 'event' && dragData.id !== ev.id) {
-            // 事项排序：把拖拽的事项移到目标事项上方
             const srcIndex = db.events.findIndex(x => x.id === dragData.id);
             const tgtIndex = db.events.findIndex(x => x.id === ev.id);
             if (srcIndex > -1 && tgtIndex > -1) {
                 const [moved] = db.events.splice(srcIndex, 1);
-                moved.cat = ev.cat; // 自动归属目标分类
+                moved.cat = ev.cat;
                 db.events.splice(tgtIndex, 0, moved);
                 saveDB(); renderCatTree();
             }
@@ -1885,17 +1969,14 @@ function renderCatTree(){
           header.style.opacity = '1';
           if (dragData) {
               if (dragData.type === 'event') {
-                  // 事项拖到分类上：归属该分类
                   const ev = db.events.find(x => x.id === dragData.id);
                   if (ev && ev.cat !== fullPath) {
                       ev.cat = fullPath;
                       saveDB(); renderCatTree();
                   }
               } else if (dragData.type === 'category' && dragData.path !== fullPath) {
-                  // 分类排序：把拖拽的分类移到目标分类之前
                   const srcIndex = db.categories.indexOf(dragData.path);
                   const tgtIndex = db.categories.indexOf(fullPath);
-                  // 这里简化处理，仅做同级别或者直接插入
                   if (srcIndex > -1 && tgtIndex > -1 && !dragData.path.startsWith(fullPath)) {
                       const [moved] = db.categories.splice(srcIndex, 1);
                       db.categories.splice(tgtIndex, 0, moved);
@@ -2306,6 +2387,7 @@ function importBackup(input){
           if(ev.isPinned === undefined) ev.isPinned = false;
       });
       db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []); 
+      cleanupOldData();
       saveDB(); 
       document.getElementById("sleepNeed").value = db.settings.sleepNeed;
       renderAll(); alert("备份恢复成功");
@@ -2322,7 +2404,15 @@ document.querySelectorAll(".tab").forEach(t => {
   };
 });
 
-setInterval(() => renderGlobalTimers(), 1000);
+// 页面常开时，跨天自动清理并刷新
+setInterval(() => {
+  renderGlobalTimers();
+  if (db.settings.lastActiveDate !== todayStr()) {
+    processDailyTransition();
+    renderAll();
+  }
+}, 1000);
+
 function renderAll(){ renderCatTree(); renderTodos(); renderGlobalTimers(); renderAxis(); renderStats(); renderPinnedArea(); }
 
 loadDB(); 
