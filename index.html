@@ -52,6 +52,8 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .day-tabs button.active{background:#409c94; color:white;}
 .quadrant-grid{display:flex;flex-direction:column;gap:10px;}
 .quadrant{min-height:100px;padding:10px;border-radius:10px;background:#fff;}
+/* 折叠后只保留标题栏高度 */
+.quadrant.collapsed{min-height:auto;}
 .q1{background:#fef2f2}.q2{background:#eff6ff}.q3{background:#fefce8}.q4{background:#f0fdf4}.q5{background:#f8fafc}
 .task-item{padding:10px;border-radius:8px;background:#fff;margin:6px 0;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px #00000005;}
 .task-item.done{text-decoration:line-through;color:#94a3b8;background:#f8fafc;opacity:0.8}
@@ -156,6 +158,8 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .chart-col h3 { margin-bottom:10px; }
 .pie-wrap { position:relative; flex:1; min-height:250px; max-height:350px; width:100%; }
 .rank-list { font-size:13px; color:#475569; line-height:1.6; overflow-y:auto; max-height:300px; padding-right:5px;}
+/* 耗时排行滚动展示 */
+#catRankList { max-height:300px; overflow-y:auto; }
 .rank-item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #e2e8f0; align-items:center; }
 .rank-item:last-child { border-bottom:none; }
 .rank-bar-bg { flex:1; height:8px; background:#f1f5f9; margin:0 10px; border-radius:4px; overflow:hidden; }
@@ -339,11 +343,17 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 
 <div class="chart-row">
   <div class="chart-col">
-    <h3>分类耗时排行</h3>
+    <div class="flex-row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h3 style="margin:0;">耗时排行</h3>
+      <select id="statGroupBySel" onchange="renderStats()" style="padding:4px 8px; font-size:12px; border-radius:6px; width:auto;">
+        <option value="cat">按分类</option>
+        <option value="event">按事项</option>
+      </select>
+    </div>
     <div id="catRankList" class="rank-list"></div>
   </div>
   <div class="chart-col" style="max-width:320px; min-width:250px;">
-    <h3>分类占比</h3>
+    <h3>占比</h3>
     <div class="pie-wrap"><canvas id="pieChart"></canvas></div>
   </div>
 </div>
@@ -439,7 +449,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <div class="flex-row" style="justify-content:space-between; margin-top:15px;">
   <button class="danger" onclick="deleteCurrentEvent()">删除</button>
   <div class="flex-row">
-    <button class="secondary" onclick="exportSingleToCalendar()" style="background:#4caf50">📅 日历</button>
     <button class="secondary" onclick="viewEventHistory()" style="background:#3b82f6">📋 历史</button>
     <button class="secondary" onclick="closeEditModal()">取消</button>
     <button onclick="saveEdit()">保存</button>
@@ -459,6 +468,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <div class="flex-row" style="justify-content:space-between;margin-top:15px">
 <button class="danger" onclick="deleteAxisRecord()">🗑️ 删除记录</button>
 <div class="flex-row">
+  <button class="secondary" onclick="viewAxisRecordHistory()" style="background:#3b82f6">📋 历史</button>
   <button class="secondary" onclick="closeAxisEditModal()">取消</button>
   <button onclick="saveAxisEdit()">保存</button>
 </div>
@@ -546,16 +556,26 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
+<!-- 单个事项历史记录弹窗 -->
 <div class="modal-overlay" id="singleEventModal">
 <div class="modal">
 <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
   <h3 id="singleEventTitle" style="margin:0">记录详情</h3>
-  <select id="singleEventRange" onchange="renderSingleEventDetail()" style="padding:6px;">
-    <option value="all">全部</option><option value="day">当日</option><option value="7" selected>近7天</option><option value="30">近30天</option>
-  </select>
+  <button class="secondary" onclick="closeSingleEventModal()" style="width:auto; padding:6px 12px; font-size:13px;">✕ 关闭</button>
 </div>
-<div id="singleRecordList"></div>
-<button class="secondary" onclick="closeSingleEventModal()" style="margin-top:15px;width:100%">关闭</button>
+<div class="flex-row" style="margin-bottom:10px; gap:6px; align-items:center; flex-wrap:nowrap;">
+  <select id="singleEventGrain" onchange="onSingleEventGrainChange()" style="padding:6px; font-size:13px; width:auto;">
+    <option value="day">按日</option>
+    <option value="week">按周</option>
+    <option value="month">按月</option>
+  </select>
+  <button class="icon-btn secondary" onclick="shiftSingleEventPeriod(-1)" title="上一段">◀</button>
+  <span id="singleEventPeriodLabel" style="font-size:13px; font-weight:bold; color:#409c94; flex:1; text-align:center; min-width:80px;">—</span>
+  <button class="icon-btn secondary" onclick="shiftSingleEventPeriod(1)" title="下一段">▶</button>
+  <button class="secondary" onclick="jumpSingleEventToNow()" style="padding:6px 10px; font-size:12px; width:auto;">今天</button>
+</div>
+<div id="singleEventSummary" style="background:#eef3f2;padding:10px;border-radius:8px;margin-bottom:10px;font-weight:bold;color:#2c7c74;font-size:14px;"></div>
+<div id="singleRecordList" style="max-height:45vh; overflow-y:auto;"></div>
 </div>
 </div>
 
@@ -577,6 +597,10 @@ let isNewEventMode = false;
 let currentTodoOffset = 0;
 let pieChart;
 let currentAxisScale = 3;
+
+// 单个事项历史：粒度与锚点
+let currentSingleEventGrain = 'day';
+let currentSingleEventAnchor = null;
 
 // 拖拽状态
 let dragSrcEl = null;
@@ -631,8 +655,6 @@ function getEvTodayStr(ev, date = new Date()) {
 }
 
 /* ================= 清理策略 ================= */
-// 打卡记录：每日/长期/常驻保留昨天今天明天；每周保留本周；每月保留本月；限时保留全部
-// 时间轴与统计：只保留最近 365 天
 function cleanupOldData() {
   const todayS = todayStr();
   const todayD = new Date(todayS + 'T00:00:00');
@@ -665,7 +687,6 @@ function cleanupOldData() {
         return d.getFullYear() === y && d.getMonth() === m;
       });
     } else {
-      // 限时：保留全部完成记录，避免完成后三天又出现
       kept = doneDates;
     }
 
@@ -673,7 +694,6 @@ function cleanupOldData() {
     else db.doneEvents[evId] = kept;
   });
 
-  // 时间轴与统计记录：只保留最近 365 天
   const cutoff = new Date(todayD);
   cutoff.setDate(cutoff.getDate() - 365);
   cutoff.setHours(0, 0, 0, 0);
@@ -708,7 +728,6 @@ function loadDB(){
   if(!db.collapsedCats) db.collapsedCats = [];
   db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []);
 
-  // 兜底：确保事件分类字段有值，防止渲染时抛错
   db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; });
 
   document.getElementById("sleepNeed").value = db.settings.sleepNeed;
@@ -907,12 +926,25 @@ function getFilteredTasksForDate(targetViewDateStr) {
     
     if (filterCats.length > 0 && !filterCats.includes(lastCat)) return;
 
+    // 完成状态判断：每周/每月按周期内是否有完成记录；其余按目标日期
     let isDone = false;
     const doneDates = db.doneEvents[ev.id] || [];
-    if (doneDates.includes(targetViewDateStr)) {
-        isDone = true;
-    } else if (targetViewDateStr === realNowStr && evTodayStr < realNowStr && doneDates.includes(evTodayStr)) {
-        isDone = true; 
+
+    if (ev.freq === "每周") {
+        const targetWeekKey = getWeekKey(targetViewDateStr);
+        isDone = doneDates.some(d => getWeekKey(d) === targetWeekKey);
+    } else if (ev.freq === "每月") {
+        const td = new Date(targetViewDateStr + 'T00:00:00');
+        isDone = doneDates.some(d => {
+            const dd = new Date(d + 'T00:00:00');
+            return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth();
+        });
+    } else {
+        if (doneDates.includes(targetViewDateStr)) {
+            isDone = true;
+        } else if (targetViewDateStr === realNowStr && evTodayStr < realNowStr && doneDates.includes(evTodayStr)) {
+            isDone = true;
+        }
     }
 
     result.push({ ev, isDone });
@@ -927,12 +959,15 @@ function toggleQuad(q) {
     saveDB();
     const body = document.getElementById(`q${q}`);
     const toggle = document.getElementById(`toggle${q}`);
+    const quad = body ? body.parentElement : null;
     if (db.settings.quadCollapsed[q]) {
         body.classList.add("hidden");
         toggle.classList.add("collapsed");
+        if (quad) quad.classList.add("collapsed");
     } else {
         body.classList.remove("hidden");
         toggle.classList.remove("collapsed");
+        if (quad) quad.classList.remove("collapsed");
     }
 }
 
@@ -944,12 +979,15 @@ function renderTodos(){
   Object.keys(qs).forEach(q => {
       const body = document.getElementById(`q${q}`);
       const toggle = document.getElementById(`toggle${q}`);
+      const quad = body ? body.parentElement : null;
       if (db.settings.quadCollapsed[q]) {
           body.classList.add("hidden");
           toggle.classList.add("collapsed");
+          if (quad) quad.classList.add("collapsed");
       } else {
           body.classList.remove("hidden");
           toggle.classList.remove("collapsed");
+          if (quad) quad.classList.remove("collapsed");
       }
   });
 
@@ -1034,7 +1072,6 @@ function hasRecordOnDate(eventId, dateStr) {
 function toggleDone(evId, targetDateStr, isExpired = false){
   const ev = db.events.find(e => e.id === evId); if(!ev) return;
 
-  // 日界修复：今天视图按事项逻辑日记账；昨天/明天视图按视图日期记账
   const recordDateStr = (targetDateStr === todayStr()) ? getEvTodayStr(ev) : targetDateStr;
 
   let doneDates = db.doneEvents[evId];
@@ -1043,14 +1080,40 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     db.doneEvents[evId] = doneDates;
   }
 
-  const isDone = doneDates.includes(recordDateStr);
+  // 统一判断：每周/每月按周期；其余按目标日期
+  let isDone = false;
+  let relatedDates = [];
+
+  if (ev.freq === "每周") {
+    const targetWeekKey = getWeekKey(targetDateStr);
+    relatedDates = doneDates.filter(d => getWeekKey(d) === targetWeekKey);
+    isDone = relatedDates.length > 0;
+  } else if (ev.freq === "每月") {
+    const td = new Date(targetDateStr + 'T00:00:00');
+    relatedDates = doneDates.filter(d => {
+      const dd = new Date(d + 'T00:00:00');
+      return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth();
+    });
+    isDone = relatedDates.length > 0;
+  } else {
+    if (doneDates.includes(recordDateStr)) {
+      isDone = true;
+      relatedDates = [recordDateStr];
+    } else if (targetDateStr === todayStr()) {
+      const evToday = getEvTodayStr(ev);
+      if (evToday !== recordDateStr && doneDates.includes(evToday)) {
+        isDone = true;
+        relatedDates = [evToday];
+      }
+    }
+  }
 
   if (isDone) {
     pushUndo("取消待办");
-    db.doneEvents[evId] = doneDates.filter(d => d !== recordDateStr);
+    db.doneEvents[evId] = doneDates.filter(d => !relatedDates.includes(d));
     if (db.doneEvents[evId].length === 0) delete db.doneEvents[evId];
 
-    // 撤销自动补录记录：倒序查找该事项的自动记录，避免误删其他记录
+    // 撤销自动补录记录：倒序找该事项自动记录
     for (let i = db.records.length - 1; i >= 0; i--) {
       if (db.records[i].eventId === evId && db.records[i].isAutoDone) {
         db.records.splice(i, 1);
@@ -1062,7 +1125,6 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     if (!db.doneEvents[evId]) db.doneEvents[evId] = [];
     db.doneEvents[evId].push(recordDateStr);
 
-    // 检查是否在计时
     const runningTimer = Object.values(db.timers).find(t => t.eventId === evId);
     if (runningTimer) {
       const durMs = Date.now() - runningTimer.startAt;
@@ -1088,7 +1150,6 @@ function toggleDone(evId, targetDateStr, isExpired = false){
       delete db.timers[runningTimer.tid];
       db.pausedTimers = db.pausedTimers.filter(id => id !== evId);
     } else {
-      // 按事项逻辑日判断是否已有记录，避免日界前后重复补录
       if (!hasRecordOnDate(evId, recordDateStr)) {
         let shouldRecord = true;
         if (isExpired) {
@@ -1096,7 +1157,6 @@ function toggleDone(evId, targetDateStr, isExpired = false){
         }
 
         if (shouldRecord) {
-          // 补录日期与视图日期对齐，避免在“昨天”标记完成时落到今天
           let endTime;
           if (targetDateStr === todayStr()) {
             endTime = new Date();
@@ -1552,6 +1612,7 @@ function saveAxisEdit() {
   r.durationMs = newDur*60000;
   
   saveDB(); closeAxisEditModal(); renderAxis(); renderStats(); renderTodos();
+  if (document.getElementById("singleEventModal").classList.contains("show")) renderSingleEventDetail();
 }
 
 function deleteAxisRecord() {
@@ -1559,6 +1620,20 @@ function deleteAxisRecord() {
   pushUndo("删除记录");
   db.records = db.records.filter(r => r.rid !== currentAxisEditRid);
   saveDB(); closeAxisEditModal(); renderAxis(); renderStats(); renderTodos();
+  if (document.getElementById("singleEventModal").classList.contains("show")) renderSingleEventDetail();
+}
+
+// 时间轴记录编辑弹窗中，查看当前记录关联事项的历史
+function viewAxisRecordHistory() {
+  const r = db.records.find(x => x.rid == currentAxisEditRid);
+  if (!r) return;
+  const evId = r.eventId;
+  if (!evId || String(evId).startsWith("manual_")) {
+    showToast("该记录未关联事项，无历史可查");
+    return;
+  }
+  closeAxisEditModal();
+  openSingleEventDetail(evId);
 }
 
 /* ================= 编辑事项 ================= */
@@ -1661,9 +1736,19 @@ function renderStats(){
 
   const colors = ["#ef4444","#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f43f5e","#84cc16","#06b6d4"];
 
+  const groupBy = document.getElementById("statGroupBySel") ? document.getElementById("statGroupBySel").value : "cat";
+  const getGroupKey = (r) => {
+    if (groupBy === "event") {
+      // 分类整类计时记录显示分类名
+      if (r.eventId && String(r.eventId).startsWith("cat_")) return r.cat || "其他";
+      return r.name || "未知";
+    }
+    return r.cat || "其他";
+  };
+
   const catMap = {}; 
   recs.forEach(r => { 
-      const c = r.cat || "其他";
+      const c = getGroupKey(r);
       catMap[c] = (catMap[c] || 0) + r.durationMs; 
   });
   const catArray = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
@@ -2298,33 +2383,126 @@ function renderAddTasksList() {
   });
 }
 
+/* ================= 单个事项历史 ================= */
 function openSingleEventDetail(evId){
   currentSingleEventId = evId;
-  document.getElementById("singleEventTitle").innerText = (db.events.find(e => e.id === evId) || { name: "记录" }).name + " 历史";
-  document.getElementById("singleEventRange").value = "7"; renderSingleEventDetail(); document.getElementById("singleEventModal").classList.add("show");
+  currentSingleEventGrain = 'day';
+  currentSingleEventAnchor = todayStr();
+
+  let title = "记录";
+  const ev = db.events.find(e => e.id === evId);
+  if (ev) {
+    title = ev.name;
+  } else if (String(evId).startsWith("cat_")) {
+    title = String(evId).replace("cat_", "") + " 整类";
+  } else {
+    const rec = db.records.find(r => r.eventId === evId);
+    if (rec) title = rec.name;
+  }
+  document.getElementById("singleEventTitle").innerText = title + " 历史";
+  document.getElementById("singleEventGrain").value = 'day';
+  renderSingleEventDetail();
+  document.getElementById("singleEventModal").classList.add("show");
 }
+
+function closeSingleEventModal(){
+  document.getElementById("singleEventModal").classList.remove("show");
+}
+
+function onSingleEventGrainChange(){
+  currentSingleEventGrain = document.getElementById("singleEventGrain").value;
+  currentSingleEventAnchor = todayStr();
+  renderSingleEventDetail();
+}
+
+function shiftSingleEventPeriod(dir){
+  if (!currentSingleEventAnchor) currentSingleEventAnchor = todayStr();
+  const d = new Date(currentSingleEventAnchor + 'T00:00:00');
+  if (currentSingleEventGrain === 'day') {
+    d.setDate(d.getDate() + dir);
+  } else if (currentSingleEventGrain === 'week') {
+    d.setDate(d.getDate() + dir * 7);
+  } else if (currentSingleEventGrain === 'month') {
+    d.setMonth(d.getMonth() + dir);
+  }
+  currentSingleEventAnchor = dateToStr(d);
+  renderSingleEventDetail();
+}
+
+function jumpSingleEventToNow(){
+  currentSingleEventAnchor = todayStr();
+  renderSingleEventDetail();
+}
+
+function getSingleEventPeriodRange(){
+  const anchor = currentSingleEventAnchor || todayStr();
+  const d = new Date(anchor + 'T00:00:00');
+  let start, end, label;
+
+  if (currentSingleEventGrain === 'day') {
+    start = new Date(d); start.setHours(0,0,0,0);
+    end = new Date(d); end.setHours(23,59,59,999);
+    label = anchor;
+  } else if (currentSingleEventGrain === 'week') {
+    const day = d.getDay() || 7;
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - day + 1);
+    start = new Date(mon); start.setHours(0,0,0,0);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    end = new Date(sun); end.setHours(23,59,59,999);
+    label = `${dateToStr(mon)} ~ ${dateToStr(sun)}`;
+  } else {
+    start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    label = `${d.getFullYear()}年${d.getMonth()+1}月`;
+  }
+  return { start, end, label };
+}
+
 function renderSingleEventDetail(){
-  if(!currentSingleEventId) return;
-  let recs = db.records.filter(r => r.eventId === currentSingleEventId).sort((a,b) => new Date(b.start) - new Date(a.start));
-  const range = document.getElementById("singleEventRange").value;
-  if(range === "day"){
-    const td = todayStr(); recs = recs.filter(r => { const st = new Date(r.start); return dateToStr(st) === td; });
-  } else if(range !== "all"){ recs = recs.filter(r => new Date(r.start) >= new Date(Date.now() - Number(range)*24*3600*1000)); }
+  if (!currentSingleEventId) return;
+  const { start, end, label } = getSingleEventPeriodRange();
+  document.getElementById("singleEventPeriodLabel").innerText = label;
+
+  let recs = db.records.filter(r => {
+    if (r.eventId !== currentSingleEventId) return false;
+    const st = new Date(r.start);
+    return st >= start && st <= end;
+  }).sort((a,b) => new Date(b.start) - new Date(a.start));
 
   const totalMin = recs.reduce((s,r) => s + r.durationMs, 0) / 60000;
+
+  document.getElementById("singleEventSummary").innerHTML =
+    `📊 记录 <span style="color:#ef4444">${recs.length}</span> 次，累计 <span style="color:#ef4444">${Math.floor(totalMin/60)}h ${Math.round(totalMin%60)}m</span>`;
+
   const listHtml = recs.map(r => {
-      const st = new Date(r.start).toLocaleString(undefined, {month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit'});
-      const et = new Date(r.end).toLocaleString(undefined, {month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit'});
-      return `<div style="padding:8px;border-bottom:1px solid #eee;font-size:13px">${st} — ${et} (${(r.durationMs/60000).toFixed(0)}分钟)</div>`;
+    const st = new Date(r.start).toLocaleString(undefined, {month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit'});
+    const et = new Date(r.end).toLocaleString(undefined, {month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit'});
+    return `<div style="padding:8px;border-bottom:1px solid #eee;font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <span style="flex:1; word-break:break-all;">${st} — ${et} (${(r.durationMs/60000).toFixed(0)}分钟)</span>
+      <button class="icon-btn secondary" title="修改" onclick="editSingleRecord('${r.rid}')" style="width:auto; padding:4px 8px; font-size:12px;">✏️</button>
+      <button class="icon-btn danger" title="删除" onclick="deleteSingleRecord('${r.rid}')" style="width:auto; padding:4px 8px; font-size:12px;">🗑️</button>
+    </div>`;
   }).join("");
-  
-  document.getElementById("singleRecordList").innerHTML = `
-    <div style="background:#eef3f2;padding:10px;border-radius:8px;margin-bottom:10px;font-weight:bold;color:#2c7c74;font-size:14px">
-      📊 记录 <span style="color:#ef4444">${recs.length}</span> 次，累计 <span style="color:#ef4444">${Math.floor(totalMin/60)}h ${Math.round(totalMin%60)}m</span>
-    </div>` + 
-    (listHtml || "<div class='meta-small'>无记录</div>");
+
+  document.getElementById("singleRecordList").innerHTML = listHtml || "<div class='meta-small' style='padding:10px;text-align:center'>该周期内无记录</div>";
 }
-function closeSingleEventModal(){ document.getElementById("singleEventModal").classList.remove("show"); }
+
+function editSingleRecord(rid){
+  openAxisEditModal(rid);
+}
+
+function deleteSingleRecord(rid){
+  if (!confirm("确定删除这条记录吗？")) return;
+  pushUndo("删除记录");
+  db.records = db.records.filter(r => r.rid !== rid);
+  saveDB();
+  renderSingleEventDetail();
+  renderAxis();
+  renderStats();
+}
+
 function viewEventHistory() {
   if(isNewEventMode) return alert("尚未创建，无历史记录");
   const evId = currentEditEventId;
@@ -2404,7 +2582,6 @@ document.querySelectorAll(".tab").forEach(t => {
   };
 });
 
-// 页面常开时，跨天自动清理并刷新
 setInterval(() => {
   renderGlobalTimers();
   if (db.settings.lastActiveDate !== todayStr()) {
