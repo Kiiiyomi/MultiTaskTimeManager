@@ -214,9 +214,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 
 <div class="panel active" id="timer">
-<div class="pinned-area" id="pinnedArea">
-  <!-- 动态注入常用事项 -->
-</div>
+<div class="pinned-area" id="pinnedArea"></div>
 <div class="batch-bar">
 <input type="text" id="searchTree" class="search-input" placeholder="🔍 搜索..." oninput="renderCatTree()">
 <button class="action-icon primary" onclick="openBatchModal()" title="批量修改">✏️</button>
@@ -237,8 +235,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
       <button class="secondary" onclick="openAddTasksModal()" style="background:#4caf50; font-size:13px; padding:6px 10px;">＋ 任务池</button>
       <button class="secondary" onclick="archiveAllExpired()" style="font-size:12px; padding:4px 8px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; margin-left:auto; font-weight:normal;">🧹 清理过期</button>
     </div>
-    
-    <!-- 自定义分类多选下拉 -->
     <div class="custom-select-wrap" id="catFilterWrap">
       <div class="custom-select-btn" id="catFilterBtn" onclick="toggleCatDropdown(event)">
         <span id="catFilterText">全部分类</span>
@@ -249,12 +245,9 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
           <button onclick="toggleAllCats(true)">全选</button>
           <button onclick="toggleAllCats(false)">清空</button>
         </div>
-        <div class="cat-filter-list" id="catFilterList">
-          <!-- JS动态注入 -->
-        </div>
+        <div class="cat-filter-list" id="catFilterList"></div>
       </div>
     </div>
-    
   </div>
   <div class="flex-row" style="background:#f8fafc; padding:8px; border-radius:8px; gap:10px;">
     <span style="font-size:13px; font-weight:bold; color:#409c94;">时间预算</span>
@@ -311,9 +304,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 <button onclick="renderAxis()">刷新</button>
 <button class="secondary" onclick="openAxisAddModal()" style="background:#4caf50">＋ 补录</button>
 </div>
-<div id="axisWrap" style="height: 65vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; background:#f8fafc; position:relative;">
-  <!-- 连续时间轴容器 -->
-</div>
+<div id="axisWrap" style="height: 65vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; background:#f8fafc; position:relative;"></div>
 </div>
 </div>
 
@@ -598,11 +589,9 @@ let currentTodoOffset = 0;
 let pieChart;
 let currentAxisScale = 3;
 
-// 单个事项历史：粒度与锚点
 let currentSingleEventGrain = 'day';
 let currentSingleEventAnchor = null;
 
-// 拖拽状态
 let dragSrcEl = null;
 let dragData = null;
 
@@ -711,6 +700,22 @@ function processDailyTransition() {
   saveDB();
 }
 
+// 清理没有任何未归档事项（含子分类）引用的空分类
+function pruneEmptyCategories() {
+  const usedPrefixes = new Set();
+  db.events.forEach(ev => {
+    if (ev.isArchived) return;
+    if (!ev.cat) return;
+    const parts = ev.cat.split('/').filter(Boolean);
+    let path = '';
+    parts.forEach(p => {
+      path = path ? path + '/' + p : p;
+      usedPrefixes.add(path);
+    });
+  });
+  db.categories = db.categories.filter(c => usedPrefixes.has(c));
+}
+
 function loadDB(){
   const raw = localStorage.getItem(DB_KEY);
   if(raw){ try{ db = JSON.parse(raw); }catch(e){} }
@@ -730,11 +735,25 @@ function loadDB(){
 
   db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; });
 
+  // 归一化 doneEvents，避免历史脏数据导致 includes 误判或渲染中断
+  if (db.doneEvents) {
+    Object.keys(db.doneEvents).forEach(evId => {
+      let val = db.doneEvents[evId];
+      if (!Array.isArray(val)) val = val ? [val] : [];
+      val = val.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+      if (val.length === 0) delete db.doneEvents[evId];
+      else db.doneEvents[evId] = val;
+    });
+  }
+
   document.getElementById("sleepNeed").value = db.settings.sleepNeed;
   processDailyTransition();
 }
 
-function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); }
+function saveDB(){ 
+  pruneEmptyCategories();
+  localStorage.setItem(DB_KEY, JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) })); 
+}
 
 function updateSleepNeed(val) {
     db.settings.sleepNeed = +val;
@@ -896,6 +915,11 @@ function getFilteredTasksForDate(targetViewDateStr) {
     
     if ((ev.freq === "长期" || ev.freq === "常驻") && !db.pulledEvents.includes(ev.id)) return;
 
+    // 归一化该事项的完成日期集合，避免字符串/对象等异常类型导致 includes 误判或抛错
+    let doneDates = db.doneEvents[ev.id];
+    if (!Array.isArray(doneDates)) doneDates = doneDates ? [doneDates] : [];
+    doneDates = doneDates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+
     let isForView = false;
     const evTodayStr = getEvTodayStr(ev, realNow);
     
@@ -907,7 +931,7 @@ function getFilteredTasksForDate(targetViewDateStr) {
        if (ev.freq === "长期" || ev.freq === "常驻") {
            isForView = true;
        } else {
-           if (db.doneEvents[ev.id] && db.doneEvents[ev.id].includes(targetViewDateStr)) {
+           if (doneDates.includes(targetViewDateStr)) {
                isForView = true;
            } else {
                if (ev.freq === "每日") isForView = true;
@@ -928,7 +952,6 @@ function getFilteredTasksForDate(targetViewDateStr) {
 
     // 完成状态判断：每周/每月按周期内是否有完成记录；其余按目标日期
     let isDone = false;
-    const doneDates = db.doneEvents[ev.id] || [];
 
     if (ev.freq === "每周") {
         const targetWeekKey = getWeekKey(targetViewDateStr);
@@ -975,7 +998,6 @@ function renderTodos(){
   const qs = {1:"q1",2:"q2",3:"q3",4:"q4",0:"q0"};
   Object.values(qs).forEach(id => document.getElementById(id).innerHTML = "");
   
-  // 恢复折叠状态
   Object.keys(qs).forEach(q => {
       const body = document.getElementById(`q${q}`);
       const toggle = document.getElementById(`toggle${q}`);
@@ -1080,7 +1102,6 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     db.doneEvents[evId] = doneDates;
   }
 
-  // 统一判断：每周/每月按周期；其余按目标日期
   let isDone = false;
   let relatedDates = [];
 
@@ -1113,7 +1134,6 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     db.doneEvents[evId] = doneDates.filter(d => !relatedDates.includes(d));
     if (db.doneEvents[evId].length === 0) delete db.doneEvents[evId];
 
-    // 撤销自动补录记录：倒序找该事项自动记录
     for (let i = db.records.length - 1; i >= 0; i--) {
       if (db.records[i].eventId === evId && db.records[i].isAutoDone) {
         db.records.splice(i, 1);
@@ -1623,7 +1643,6 @@ function deleteAxisRecord() {
   if (document.getElementById("singleEventModal").classList.contains("show")) renderSingleEventDetail();
 }
 
-// 时间轴记录编辑弹窗中，查看当前记录关联事项的历史
 function viewAxisRecordHistory() {
   const r = db.records.find(x => x.rid == currentAxisEditRid);
   if (!r) return;
@@ -1739,7 +1758,6 @@ function renderStats(){
   const groupBy = document.getElementById("statGroupBySel") ? document.getElementById("statGroupBySel").value : "cat";
   const getGroupKey = (r) => {
     if (groupBy === "event") {
-      // 分类整类计时记录显示分类名
       if (r.eventId && String(r.eventId).startsWith("cat_")) return r.cat || "其他";
       return r.name || "未知";
     }
