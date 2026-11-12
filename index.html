@@ -10,7 +10,6 @@
 *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:#f2f4f7;color:#333;padding:10px;max-width:800px;margin:0 auto;padding-bottom:30px}
 
-/* 顶栏任务区 */
 #globalTimerBar{background:#fff;border-radius:12px;padding:8px;margin-bottom:10px;box-shadow:0 2px 6px #00000008;display:flex;flex-direction:column;gap:8px;}
 #globalTimerBar:empty{display:none;}
 .timer-chip{display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px 10px;font-size:14px;width:100%;}
@@ -19,7 +18,6 @@ body{background:#f2f4f7;color:#333;padding:10px;max-width:800px;margin:0 auto;pa
 .timer-chip button{background:transparent;color:#666;border:none;font-size:14px;padding:4px;cursor:pointer;flex-shrink:0;width:auto;height:auto;}
 .timer-chip .btn-done{color:#166534}
 
-/* 导航栏 */
 .tab-bar{display:flex;gap:6px;margin-bottom:12px;background:#fff;border-radius:12px;padding:6px;box-shadow:0 2px 6px #00000008;}
 .tab{flex:1;padding:10px 0;text-align:center;font-size:20px;background:#f8fafc;border-radius:8px;cursor:pointer;transition:0.2s;}
 .tab.active{background:#409c94;color:white;transform:scale(1.02)}
@@ -30,7 +28,6 @@ body{background:#f2f4f7;color:#333;padding:10px;max-width:800px;margin:0 auto;pa
 h3{margin:0 0 10px 0;font-size:15px;color:#2c7c74}
 .flex-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 
-/* 基础控件 */
 input,select,textarea,button{padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;background:#f8fafc;outline:none;transition:border 0.2s;}
 input:focus,select:focus,textarea:focus{border-color:#409c94;background:#fff}
 button{cursor:pointer;background:#409c94;color:white;border:none;font-weight:500;}
@@ -40,30 +37,29 @@ button.danger{background:#ef4444}
 button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .timer-btn { color: #f59e0b !important; }
 
-/* 操作栏 */
 .batch-bar{background:#fff;padding:8px;border-radius:10px;margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;box-shadow:0 2px 6px #00000008;}
 .search-input{flex:1;min-width:100px;padding:8px;font-size:14px;border-radius:8px;background:#f1f5f9;border:none;}
 .action-icon{background:#f1f5f9;color:#475569;border-radius:8px;padding:8px;font-size:16px;display:inline-flex;align-items:center;justify-content:center;height:36px;}
 .action-icon.primary{background:#409c94;color:white;}
 
-/* 待办页 */
 .day-tabs{display:flex; gap:6px; margin-bottom:10px; background:#fff; padding:6px; border-radius:10px;}
 .day-tabs button{flex:1; background:#f1f5f9; color:#475569;}
 .day-tabs button.active{background:#409c94; color:white;}
 .quadrant-grid{display:flex;flex-direction:column;gap:10px;}
 .quadrant{min-height:100px;padding:10px;border-radius:10px;background:#fff;}
-/* 折叠后只保留标题栏高度 */
 .quadrant.collapsed{min-height:auto;}
 .q1{background:#fef2f2}.q2{background:#eff6ff}.q3{background:#fefce8}.q4{background:#f0fdf4}.q5{background:#f8fafc}
 .task-item{padding:10px;border-radius:8px;background:#fff;margin:6px 0;border:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px #00000005;}
-.task-item.done{text-decoration:line-through;color:#94a3b8;background:#f8fafc;opacity:0.8}
+.task-item.done{color:#94a3b8;background:#f8fafc;opacity:0.85}
+.task-item.done .item-title{text-decoration:line-through}
+.task-item.skipped{color:#94a3b8;background:#f8fafc;opacity:0.85}
+.task-item.skipped .item-title{text-decoration:none}
 .task-item .task-content{flex:1; min-width:0; word-break: break-all;}
 
-/* 自定义多选下拉 */
 .custom-select-wrap { position: relative; display: inline-block; }
 .custom-select-btn { padding: 6px 12px; font-size: 14px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; color: #333; display: flex; align-items: center; justify-content: space-between; cursor: pointer; min-width: 100px; gap: 8px;}
 .custom-select-btn.active { border-color: #409c94; }
-.custom-select-dropdown { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; width: 180px; max-height: 250px; display: none; flex-direction: column; }
+.custom-select-dropdown { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; width: 220px; max-height: 280px; display: none; flex-direction: column; }
 .custom-select-dropdown.show { display: flex; }
 .cat-filter-actions { display: flex; gap: 6px; padding: 6px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; border-radius: 8px 8px 0 0; }
 .cat-filter-actions button { flex: 1; padding: 4px 0; font-size: 12px; background: #fff; border: 1px solid #cbd5e1; color: #475569; font-weight: normal; border-radius: 4px; }
@@ -72,7 +68,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .cat-filter-item:hover { background: #f8fafc; }
 .cat-filter-item input { width: 16px; height: 16px; margin: 0; }
 
-/* 分类树及拖拽 */
 .cat-tree-node{margin:2px 0;padding-left:10px;position:relative;}
 .cat-header{display:flex;align-items:center;gap:6px;padding:10px 6px;border-radius:8px;user-select:none;}
 .cat-checkbox{width:18px;height:18px;flex-shrink:0;}
@@ -97,7 +92,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .item-title{flex:1;font-weight:600;font-size:14px;word-break:break-all;line-height:1.4;}
 .meta-small{font-size:12px;color:#94a3b8}
 
-/* 折叠面板 */
 .quadrant-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 5px; }
 .quadrant-header b { pointer-events: none; }
 .quadrant-toggle { font-size: 12px; color: #94a3b8; transition: transform 0.2s; }
@@ -105,14 +99,12 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .quadrant-body { display: block; }
 .quadrant-body.hidden { display: none; }
 
-/* 弹窗 */
 .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#00000060;z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
 .modal-overlay.show{display:flex}
 .modal{background:#fff;border-radius:16px;padding:20px;width:92%;max-width:450px;max-height:90vh;overflow-y:auto;}
 .form-group{margin-bottom:12px;display:flex;flex-direction:column;gap:6px;}
 .form-group label{font-size:13px;color:#64748b;font-weight:500}
 
-/* 时间轴 */
 .calendar-container { display: flex; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; position: relative;}
 .time-scale { width: 55px; flex-shrink: 0; border-right: 1px solid #e2e8f0; background: #fff; position: relative;}
 .time-label { position: absolute; width: 100%; }
@@ -120,7 +112,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .time-grid-container { flex: 1; position: relative; background: #fff; overflow: hidden; }
 .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: #f1f5f9; z-index: 1;}
 
-/* 时间轴色块 */
 .ev-block { 
   position: absolute; 
   border-radius: 6px; 
@@ -152,25 +143,21 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .ev-dur { color: #64748b; margin-top: 1px; white-space: nowrap; line-height: 1.2;}
 .ev-time { color: #94a3b8; margin-top: 1px; white-space: nowrap; line-height: 1.2;}
 
-/* 统计 */
 .chart-row { display:flex; flex-direction:column; gap:12px; margin-bottom:12px; }
 .chart-col { background:#fff; border-radius:12px; padding:12px; box-shadow:0 2px 6px #00000008; width:100%; display:flex; flex-direction:column; }
 .chart-col h3 { margin-bottom:10px; }
 .pie-wrap { position:relative; flex:1; min-height:250px; max-height:350px; width:100%; }
 .rank-list { font-size:13px; color:#475569; line-height:1.6; overflow-y:auto; max-height:300px; padding-right:5px;}
-/* 耗时排行滚动展示 */
 #catRankList { max-height:300px; overflow-y:auto; }
 .rank-item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #e2e8f0; align-items:center; }
 .rank-item:last-child { border-bottom:none; }
 .rank-bar-bg { flex:1; height:8px; background:#f1f5f9; margin:0 10px; border-radius:4px; overflow:hidden; }
 .rank-bar-fill { height:100%; border-radius:4px; }
 
-/* 热力图 */
 .heatmap-grid { display:grid; grid-template-columns:repeat(24, 1fr); gap:2px; margin-top:10px; }
 .heatmap-cell { aspect-ratio:1; border-radius:2px; background:#f1f5f9; cursor:pointer; }
 .heatmap-axis { display:flex; justify-content:space-between; font-size:11px; color:#94a3b8; margin-top:4px; }
 
-/* Toast 提示 */
 #toast {
     position: fixed;
     bottom: 20px;
@@ -187,10 +174,23 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
     opacity: 0;
 }
 
-/* 常用事项区 */
-.pinned-area { background: #fff; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 6px #00000008; display: flex; gap: 8px; overflow-x: auto; white-space: nowrap;}
+.pinned-wrap { background: #fff; border-radius: 12px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 6px #00000008; display: flex; gap: 8px; align-items: flex-start; }
+.pinned-mode-btn { padding: 8px 12px; background: #409c94; color: white; border: none; border-radius: 8px; cursor: pointer; flex-shrink: 0; font-size: 16px; align-self: stretch; display: inline-flex; align-items: center; justify-content: center; }
+.pinned-list { flex: 1; display: flex; gap: 8px; overflow-x: auto; white-space: nowrap; min-height: 36px; align-items: center; }
+.pinned-list.vertical { flex-direction: column; overflow-x: hidden; overflow-y: auto; max-height: 260px; white-space: normal; align-items: stretch; }
 .pinned-chip { display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; flex-shrink: 0;}
 .pinned-chip:active { background: #dbeafe; }
+.combo-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; margin-bottom: 6px; }
+.combo-row:last-child { margin-bottom: 0; }
+.combo-names { flex: 1; font-size: 13px; color: #333; word-break: break-all; }
+.combo-dur { font-size: 11px; color: #64748b; flex-shrink: 0; }
+.combo-pin-btn { padding: 4px 6px; background: transparent; border: none; cursor: pointer; font-size: 14px; flex-shrink: 0; }
+.combo-launch-btn { padding: 4px 8px; background: #409c94; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+
+.done-btn { color: #10b981; background: #ecfdf5; }
+.skip-btn { color: #64748b; background: #f1f5f9; }
+.done-undo-btn { background: #aaa; color: white; }
+.skipped-undo-btn { background: #aaa; color: white; }
 
 @media(min-width: 768px){
   .quadrant-grid { display: grid; grid-template-columns: 1fr 1fr; }
@@ -214,7 +214,12 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 
 <div class="panel active" id="timer">
-<div class="pinned-area" id="pinnedArea"></div>
+<div class="pinned-wrap" id="pinnedWrap" style="display:none">
+  <button class="pinned-mode-btn" id="pinnedToggleBtn" onclick="togglePinnedView()" title="切换常用/组合">
+    <span id="pinnedModeIcon">⧉</span>
+  </button>
+  <div class="pinned-list" id="pinnedList"></div>
+</div>
 <div class="batch-bar">
 <input type="text" id="searchTree" class="search-input" placeholder="🔍 搜索..." oninput="renderCatTree()">
 <button class="action-icon primary" onclick="openBatchModal()" title="批量修改">✏️</button>
@@ -229,24 +234,30 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   <button id="tab-today" class="active" onclick="setTodoDay(0)">今天</button>
   <button id="tab-tomorrow" onclick="setTodoDay(1)">明天</button>
 </div>
+<div class="flex-row" style="justify-content:space-between; margin-bottom:10px;">
+  <select id="todoViewSel" onchange="onTodoViewChange(this.value)" style="padding:6px 10px; font-size:13px; width:auto;">
+    <option value="all">全部</option>
+    <option value="unfinished">未完成</option>
+  </select>
+  <div class="custom-select-wrap" id="catFilterWrap">
+    <div class="custom-select-btn" id="catFilterBtn" onclick="toggleCatDropdown(event)">
+      <span id="catFilterText">全部分类</span>
+      <span style="font-size:10px; color:#94a3b8;">▼</span>
+    </div>
+    <div class="custom-select-dropdown" id="catFilterDropdown">
+      <div class="cat-filter-actions">
+        <button onclick="toggleAllCats(true)">全选</button>
+        <button onclick="toggleAllCats(false)">清空</button>
+      </div>
+      <div class="cat-filter-list" id="catFilterList"></div>
+    </div>
+  </div>
+</div>
 <div class="card" style="padding:10px;">
   <div class="flex-row" style="justify-content:space-between;margin-bottom:6px">
     <div class="flex-row">
       <button class="secondary" onclick="openAddTasksModal()" style="background:#4caf50; font-size:13px; padding:6px 10px;">＋ 任务池</button>
       <button class="secondary" onclick="archiveAllExpired()" style="font-size:12px; padding:4px 8px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; margin-left:auto; font-weight:normal;">🧹 清理过期</button>
-    </div>
-    <div class="custom-select-wrap" id="catFilterWrap">
-      <div class="custom-select-btn" id="catFilterBtn" onclick="toggleCatDropdown(event)">
-        <span id="catFilterText">全部分类</span>
-        <span style="font-size:10px; color:#94a3b8;">▼</span>
-      </div>
-      <div class="custom-select-dropdown" id="catFilterDropdown">
-        <div class="cat-filter-actions">
-          <button onclick="toggleAllCats(true)">全选</button>
-          <button onclick="toggleAllCats(false)">清空</button>
-        </div>
-        <div class="cat-filter-list" id="catFilterList"></div>
-      </div>
     </div>
   </div>
   <div class="flex-row" style="background:#f8fafc; padding:8px; border-radius:8px; gap:10px;">
@@ -389,7 +400,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
-<!-- 编辑事项弹窗 -->
 <div class="modal-overlay" id="editModal">
 <div class="modal">
 <h3 id="editModalTitle">编辑事项</h3>
@@ -448,7 +458,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
-<!-- 时间轴记录编辑弹窗 -->
 <div class="modal-overlay" id="axisEditModal">
 <div class="modal">
 <h3>编辑记录</h3>
@@ -467,7 +476,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
-<!-- 时间轴补录弹窗 -->
 <div class="modal-overlay" id="axisAddModal">
 <div class="modal">
 <h3>补录时间轴记录</h3>
@@ -482,7 +490,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
-<!-- 批量修改弹窗 -->
 <div class="modal-overlay" id="batchModal">
 <div class="modal">
 <h3>批量修改 <span class="meta-small" id="batchCountInfo" style="color:#ef4444; font-weight:bold;"></span></h3>
@@ -496,28 +503,16 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   </div>
 </div>
 <div class="form-group"><label>归档状态</label><select id="batchArchivedSel"><option value="">不修改</option><option value="true">设为归档</option><option value="false">取消归档</option></select></div>
-
 <div class="flex-row" style="gap:10px;">
   <div class="form-group" style="flex:1">
-    <label>重置日界 (留空不改) <span style="color:#ef4444;cursor:pointer;font-weight:normal;" onclick="document.getElementById('batchDayBoundary').value=''">[清空]</span></label>
+    <label>重置日界 (留空不改)</label>
     <input type="time" id="batchDayBoundary" style="padding:6px;">
   </div>
   <div class="form-group" style="flex:1">
-    <label>截止时间 (留空不改) <span style="color:#ef4444;cursor:pointer;font-weight:normal;" onclick="document.getElementById('batchDeadline').value=''">[清空]</span></label>
+    <label>截止时间 (留空不改)</label>
     <input type="datetime-local" id="batchDeadline" style="padding:6px;">
   </div>
 </div>
-
-<div class="form-group" style="background:#f8fafc; padding:8px; border-radius:8px; margin-bottom:12px;">
-  <label>批量倒计时换算 (自动填入上方)</label>
-  <div class="flex-row">
-    <input type="number" id="batchCountDay" placeholder="天" style="width:50px; padding:6px;">
-    <input type="number" id="batchCountHour" placeholder="时" style="width:50px; padding:6px;">
-    <input type="number" id="batchCountMin" placeholder="分" style="width:50px; padding:6px;">
-    <button class="secondary" onclick="calcBatchDeadline()" style="padding:6px 12px; font-size:13px;">换算</button>
-  </div>
-</div>
-
 <div class="form-group"><label>预估耗时（留空不改）</label><input type="number" id="batchEst" min="0"></div>
 <div class="flex-row" style="justify-content:space-between; margin-top:15px;">
   <button class="danger" onclick="batchDeleteSelected()">删除选中</button>
@@ -547,7 +542,6 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 </div>
 
-<!-- 单个事项历史记录弹窗 -->
 <div class="modal-overlay" id="singleEventModal">
 <div class="modal">
 <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -577,7 +571,8 @@ const DB_KEY = "multiTaskManagerDB";
 let db = { 
   categories: ["工作/项目", "学习/阅读", "生活/日常"], 
   events: [], records: [], timers: {}, pausedTimers: [],
-  doneEvents: {}, pulledEvents: [], settings: { sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false} }, 
+  doneEvents: {}, skippedEvents: {}, pulledEvents: [],
+  settings: { sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false} }, 
   batchChecked: [], selectedCats: [], collapsedCats: []
 };
 let currentEditEventId = null;
@@ -588,6 +583,7 @@ let isNewEventMode = false;
 let currentTodoOffset = 0;
 let pieChart;
 let currentAxisScale = 3;
+let currentPinnedMode = 'pinned';
 
 let currentSingleEventGrain = 'day';
 let currentSingleEventAnchor = null;
@@ -643,7 +639,6 @@ function getEvTodayStr(ev, date = new Date()) {
   return dateToStr(d);
 }
 
-/* ================= 清理策略 ================= */
 function cleanupOldData() {
   const todayS = todayStr();
   const todayD = new Date(todayS + 'T00:00:00');
@@ -683,6 +678,18 @@ function cleanupOldData() {
     else db.doneEvents[evId] = kept;
   });
 
+  Object.keys(db.skippedEvents).forEach(evId => {
+    if (!db.events.some(e => e.id === evId)) {
+      delete db.skippedEvents[evId];
+      return;
+    }
+    let arr = db.skippedEvents[evId];
+    if (!Array.isArray(arr)) arr = arr ? [arr] : [];
+    arr = arr.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= minStr && d <= maxStr);
+    if (arr.length === 0) delete db.skippedEvents[evId];
+    else db.skippedEvents[evId] = arr;
+  });
+
   const cutoff = new Date(todayD);
   cutoff.setDate(cutoff.getDate() - 365);
   cutoff.setHours(0, 0, 0, 0);
@@ -700,7 +707,6 @@ function processDailyTransition() {
   saveDB();
 }
 
-// 清理没有任何未归档事项（含子分类）引用的空分类
 function pruneEmptyCategories() {
   const usedPrefixes = new Set();
   db.events.forEach(ev => {
@@ -716,13 +722,59 @@ function pruneEmptyCategories() {
   db.categories = db.categories.filter(c => usedPrefixes.has(c));
 }
 
+function normalizeDoneDates(evId) {
+  let val = db.doneEvents[evId];
+  if (!Array.isArray(val)) val = val ? [val] : [];
+  return val.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+}
+
+function isEventDoneForDate(ev, targetViewDateStr) {
+  const realNow = new Date();
+  const realNowStr = dateToStr(realNow);
+  const doneDates = normalizeDoneDates(ev.id);
+  
+  if (targetViewDateStr < realNowStr) {
+    return doneDates.includes(targetViewDateStr);
+  }
+  
+  if (ev.freq === "每周") {
+    const targetWeekKey = getWeekKey(targetViewDateStr);
+    return doneDates.some(d => getWeekKey(d) === targetWeekKey);
+  }
+  if (ev.freq === "每月") {
+    const td = new Date(targetViewDateStr + 'T00:00:00');
+    return doneDates.some(d => {
+      const dd = new Date(d + 'T00:00:00');
+      return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth();
+    });
+  }
+  
+  if (targetViewDateStr === realNowStr) {
+    const evTodayStr = getEvTodayStr(ev, realNow);
+    if (doneDates.includes(targetViewDateStr)) return true;
+    if (evTodayStr < realNowStr && doneDates.includes(evTodayStr)) return true;
+    return false;
+  }
+  
+  return doneDates.includes(targetViewDateStr);
+}
+
+function isEventSkippedForDate(evId, targetViewDateStr) {
+  const arr = db.skippedEvents[evId];
+  if (!Array.isArray(arr)) return false;
+  return arr.includes(targetViewDateStr);
+}
+
 function loadDB(){
   const raw = localStorage.getItem(DB_KEY);
   if(raw){ try{ db = JSON.parse(raw); }catch(e){} }
-  if(!db.settings) db.settings = {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false}};
+  if(!db.settings) db.settings = { sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false} };
   if(!db.settings.quadCollapsed) db.settings.quadCollapsed = {1:false, 2:false, 3:false, 4:false, 0:false};
   if(!db.settings.todoCatFilters) db.settings.todoCatFilters = [];
+  if(!db.settings.todoViewMode) db.settings.todoViewMode = 'all';
+  if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
   if(!db.doneEvents) db.doneEvents = {};
+  if(!db.skippedEvents) db.skippedEvents = {};
   if(!db.categories) db.categories = [];
   if(!db.events) db.events = [];
   if(!db.records) db.records = [];
@@ -735,7 +787,6 @@ function loadDB(){
 
   db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; });
 
-  // 归一化 doneEvents，避免历史脏数据导致 includes 误判或渲染中断
   if (db.doneEvents) {
     Object.keys(db.doneEvents).forEach(evId => {
       let val = db.doneEvents[evId];
@@ -744,6 +795,38 @@ function loadDB(){
       if (val.length === 0) delete db.doneEvents[evId];
       else db.doneEvents[evId] = val;
     });
+  }
+
+  Object.keys(db.skippedEvents).forEach(evId => {
+    let arr = db.skippedEvents[evId];
+    if (!Array.isArray(arr)) arr = arr ? [arr] : [];
+    arr = arr.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+    if (arr.length === 0) delete db.skippedEvents[evId];
+    else db.skippedEvents[evId] = arr;
+  });
+
+  if (Array.isArray(db.settings.todoCatFilters) && db.settings.todoCatFilters.length > 0) {
+    const allPaths = new Set();
+    db.events.forEach(ev => {
+      if (!ev.cat) return;
+      const parts = ev.cat.split("/").filter(Boolean);
+      let path = "";
+      parts.forEach(p => {
+        path = path ? path + "/" + p : p;
+        allPaths.add(path);
+      });
+    });
+    const newFilters = [];
+    db.settings.todoCatFilters.forEach(f => {
+      if (allPaths.has(f)) {
+        newFilters.push(f);
+      } else {
+        allPaths.forEach(p => {
+          if (p.split("/").pop() === f) newFilters.push(p);
+        });
+      }
+    });
+    db.settings.todoCatFilters = Array.from(new Set(newFilters));
   }
 
   document.getElementById("sleepNeed").value = db.settings.sleepNeed;
@@ -760,7 +843,6 @@ function updateSleepNeed(val) {
     saveDB(); recalcLoad();
 }
 
-/* ================= Toast 提示 ================= */
 function showToast(msg) {
     const toast = document.getElementById("toast");
     toast.innerText = msg;
@@ -770,7 +852,6 @@ function showToast(msg) {
     }, 2000);
 }
 
-/* ================= 并发与负载计算 ================= */
 function getMergedDuration(records) {
   if (!records.length) return 0;
   const intervals = records.map(r => [new Date(r.start).getTime(), new Date(r.end).getTime()]).sort((a, b) => a[0] - b[0]);
@@ -787,18 +868,20 @@ function getMergedDuration(records) {
 }
 
 function recalcLoad(){
-  const viewDateStr = getTodoDateStr();
+  const todayDateStr = todayStr();
   
   const dayRecs = db.records.filter(r => {
     const st = new Date(r.start);
-    return dateToStr(st) === viewDateStr;
+    return dateToStr(st) === todayDateStr;
   });
   
   const usedMs = getMergedDuration(dayRecs);
   const usedMin = usedMs / 60000;
   
-  const tasks = getFilteredTasksForDate(viewDateStr);
-  const uncompletedMin = tasks.filter(t => !t.isDone).reduce((s, t) => s + (t.ev.est || 30), 0);
+  const tasks = getFilteredTasksForDate(todayDateStr);
+  const uncompletedMin = tasks
+    .filter(t => !t.isDone && !t.isSkipped)
+    .reduce((s, t) => s + (t.ev.est || 30), 0);
   
   const sleepMin = (db.settings.sleepNeed || 7.5) * 60;
   const totalMin = 1440;
@@ -820,7 +903,6 @@ function recalcLoad(){
   tip.innerHTML = html;
 }
 
-/* ================= 日界与待办逻辑 ================= */
 function setTodoDay(offset) {
   currentTodoOffset = offset;
   document.querySelectorAll('.day-tabs button').forEach(b => b.classList.remove('active'));
@@ -834,6 +916,12 @@ function getTodoDateStr() {
   return dateToStr(d);
 }
 
+function onTodoViewChange(val) {
+  db.settings.todoViewMode = val;
+  saveDB();
+  renderTodos();
+}
+
 function updateCatFilterBtnText() {
   const span = document.getElementById("catFilterText");
   const filters = db.settings.todoCatFilters;
@@ -842,7 +930,7 @@ function updateCatFilterBtnText() {
   if (filters.length === 0 || filters.length === totalCats) {
     span.innerText = "全部分类";
   } else if (filters.length === 1) {
-    span.innerText = filters[0];
+    span.innerText = filters[0].split("/").pop();
   } else {
     span.innerText = `已选 ${filters.length} 类`;
   }
@@ -880,15 +968,23 @@ function renderCatFilterDropdown() {
   const dropdown = document.getElementById("catFilterList");
   dropdown.innerHTML = "";
   
-  const uniqueLastCats = new Set();
-  db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; uniqueLastCats.add(ev.cat.split("/").pop()); });
-  const cats = Array.from(uniqueLastCats);
+  const allPaths = new Set();
+  db.events.forEach(ev => {
+    if(!ev.cat) ev.cat = "未分类";
+    const parts = ev.cat.split("/").filter(Boolean);
+    let path = "";
+    parts.forEach(p => {
+      path = path ? path + "/" + p : p;
+      allPaths.add(path);
+    });
+  });
+  const cats = Array.from(allPaths).sort();
 
   cats.forEach(c => {
     const div = document.createElement("label");
     div.className = "cat-filter-item";
     const isChecked = db.settings.todoCatFilters.includes(c);
-    div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> ${c}`;
+    div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; word-break:break-all;">${c}</span>`;
     div.querySelector('input').onchange = (e) => {
       if (e.target.checked) {
         if (!db.settings.todoCatFilters.includes(c)) db.settings.todoCatFilters.push(c);
@@ -915,11 +1011,6 @@ function getFilteredTasksForDate(targetViewDateStr) {
     
     if ((ev.freq === "长期" || ev.freq === "常驻") && !db.pulledEvents.includes(ev.id)) return;
 
-    // 归一化该事项的完成日期集合，避免字符串/对象等异常类型导致 includes 误判或抛错
-    let doneDates = db.doneEvents[ev.id];
-    if (!Array.isArray(doneDates)) doneDates = doneDates ? [doneDates] : [];
-    doneDates = doneDates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
-
     let isForView = false;
     const evTodayStr = getEvTodayStr(ev, realNow);
     
@@ -931,6 +1022,7 @@ function getFilteredTasksForDate(targetViewDateStr) {
        if (ev.freq === "长期" || ev.freq === "常驻") {
            isForView = true;
        } else {
+           const doneDates = normalizeDoneDates(ev.id);
            if (doneDates.includes(targetViewDateStr)) {
                isForView = true;
            } else {
@@ -946,37 +1038,21 @@ function getFilteredTasksForDate(targetViewDateStr) {
 
     if (!isForView) return;
 
-    const lastCat = (ev.cat || "未分类").split("/").pop();
-    
-    if (filterCats.length > 0 && !filterCats.includes(lastCat)) return;
-
-    // 完成状态判断：每周/每月按周期内是否有完成记录；其余按目标日期
-    let isDone = false;
-
-    if (ev.freq === "每周") {
-        const targetWeekKey = getWeekKey(targetViewDateStr);
-        isDone = doneDates.some(d => getWeekKey(d) === targetWeekKey);
-    } else if (ev.freq === "每月") {
-        const td = new Date(targetViewDateStr + 'T00:00:00');
-        isDone = doneDates.some(d => {
-            const dd = new Date(d + 'T00:00:00');
-            return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth();
-        });
-    } else {
-        if (doneDates.includes(targetViewDateStr)) {
-            isDone = true;
-        } else if (targetViewDateStr === realNowStr && evTodayStr < realNowStr && doneDates.includes(evTodayStr)) {
-            isDone = true;
-        }
+    if (filterCats.length > 0) {
+      const evCat = ev.cat || "未分类";
+      const matched = filterCats.some(f => evCat === f || evCat.startsWith(f + "/"));
+      if (!matched) return;
     }
 
-    result.push({ ev, isDone });
+    const isDone = isEventDoneForDate(ev, targetViewDateStr);
+    const isSkipped = isEventSkippedForDate(ev.id, targetViewDateStr);
+
+    result.push({ ev, isDone, isSkipped });
   });
 
   return result;
 }
 
-// 四象限折叠
 function toggleQuad(q) {
     db.settings.quadCollapsed[q] = !db.settings.quadCollapsed[q];
     saveDB();
@@ -1015,18 +1091,26 @@ function renderTodos(){
 
   renderCatFilterDropdown();
   updateCatFilterBtnText();
+  
+  const viewSel = document.getElementById("todoViewSel");
+  if (viewSel) viewSel.value = db.settings.todoViewMode || 'all';
+  const viewMode = db.settings.todoViewMode || 'all';
 
   const viewDateStr = getTodoDateStr();
   const tasks = getFilteredTasksForDate(viewDateStr);
 
-  tasks.forEach(({ev, isDone}) => {
+  tasks.forEach(({ev, isDone, isSkipped}) => {
+    if (viewMode === 'unfinished' && (isDone || isSkipped)) return;
+    
     const lastCat = (ev.cat || "未分类").split("/").pop();
     const div = document.createElement("div");
-    div.className = "task-item" + (isDone ? " done" : "");
+    div.className = "task-item";
+    if (isDone) div.classList.add("done");
+    else if (isSkipped) div.classList.add("skipped");
     
     let deadlineText = "";
     let isExpired = false;
-    if(ev.deadline){
+    if(ev.deadline && !isDone && !isSkipped){
       const diff = new Date(ev.deadline).getTime() - Date.now();
       if(diff < 0) {
         deadlineText = `<span class="badge red">已过期</span>`;
@@ -1041,10 +1125,6 @@ function renderTodos(){
     }
 
     const isRunning = Object.values(db.timers).some(t => t.eventId === ev.id);
-    let btnHtml = `<button class="icon-btn secondary" title="开始计时" style="${isDone ? 'display:none' : ''}">▶</button>`;
-    if (isRunning) {
-        btnHtml = `<button class="icon-btn timer-btn" title="暂停" style="${isDone ? 'display:none' : ''}">⏸</button>`;
-    }
     
     let freqClass = "yellow";
     if (ev.freq === "每日") freqClass = "green";
@@ -1053,28 +1133,57 @@ function renderTodos(){
     else if (ev.freq === "限时") freqClass = "red";
     else if (ev.freq === "长期") freqClass = "cyan";
     else if (ev.freq === "常驻") freqClass = "orange";
+    
+    let leftBtnHtml = "";
+    let rightBtnsHtml = "";
+
+    if (isDone) {
+      rightBtnsHtml = `<button class="icon-btn done-undo-btn" title="取消完成">✓</button>`;
+    } else if (isSkipped) {
+      rightBtnsHtml = `<button class="icon-btn skipped-undo-btn" title="取消划掉">✕</button>`;
+    } else {
+      leftBtnHtml = isRunning 
+        ? `<button class="icon-btn timer-btn" title="暂停">⏸</button>`
+        : `<button class="icon-btn secondary" title="开始计时">▶</button>`;
+      
+      rightBtnsHtml = `
+        <button class="icon-btn skip-btn" title="划掉">✕</button>
+        <button class="icon-btn done-btn" title="标记完成">✓</button>
+      `;
+    }
 
     div.innerHTML = `
-      ${btnHtml}
+      <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+        ${leftBtnHtml}
+      </div>
       <div class="task-content">
         <span class="badge ${freqClass}" title="点击编辑" style="cursor:pointer" onclick="openEditModal('${ev.id}')">${lastCat}</span> ${deadlineText}
         <span class="item-title" style="display:inline-block;font-size:14px;font-weight:500">${ev.name}</span>
         <div class="meta-small">预估${ev.est}分钟 ${ev.note ? `<div style="color:#d32f2f; margin-top:2px;">备注: ${ev.note}</div>` : ''}</div>
       </div>
-      <button class="icon-btn" title="${isDone ? '取消完成' : '标记完成'}" style="${isDone ? 'background:#aaa' : ''}">✓</button>
+      <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+        ${rightBtnsHtml}
+      </div>
     `;
     
-    if (!isDone) {
-        div.querySelectorAll("button")[0].onclick = () => {
-            if (isRunning) {
-                const tid = Object.values(db.timers).find(t => t.eventId === ev.id).tid;
-                pauseTimer(tid);
-            } else {
-                startTimerForEvent(ev.id);
-            }
-        };
+    const buttons = div.querySelectorAll("button");
+    if (isDone) {
+      buttons[0].onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
+    } else if (isSkipped) {
+      buttons[0].onclick = () => toggleSkip(ev.id, viewDateStr);
+    } else {
+      buttons[0].onclick = () => {
+        if (isRunning) {
+          const tid = Object.values(db.timers).find(t => t.eventId === ev.id).tid;
+          pauseTimer(tid);
+        } else {
+          startTimerForEvent(ev.id);
+        }
+      };
+      buttons[1].onclick = () => toggleSkip(ev.id, viewDateStr);
+      buttons[2].onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
     }
-    div.querySelectorAll("button")[1].onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
+    
     document.getElementById(qs[ev.quad ?? 2] || "q0").appendChild(div);
   });
   recalcLoad();
@@ -1091,10 +1200,34 @@ function hasRecordOnDate(eventId, dateStr) {
   });
 }
 
+function toggleSkip(evId, targetDateStr) {
+  const ev = db.events.find(e => e.id === evId); if(!ev) return;
+  
+  let skipped = db.skippedEvents[evId];
+  if (!Array.isArray(skipped)) skipped = [];
+  
+  const isSkipped = skipped.includes(targetDateStr);
+  
+  if (isSkipped) {
+    pushUndo("取消划掉");
+    db.skippedEvents[evId] = skipped.filter(d => d !== targetDateStr);
+    if (db.skippedEvents[evId].length === 0) delete db.skippedEvents[evId];
+  } else {
+    pushUndo("划掉");
+    if (!db.skippedEvents[evId]) db.skippedEvents[evId] = [];
+    db.skippedEvents[evId].push(targetDateStr);
+  }
+  
+  saveDB();
+  renderTodos();
+}
+
 function toggleDone(evId, targetDateStr, isExpired = false){
   const ev = db.events.find(e => e.id === evId); if(!ev) return;
 
   const recordDateStr = (targetDateStr === todayStr()) ? getEvTodayStr(ev) : targetDateStr;
+  const todayS = todayStr();
+  const isPastTab = targetDateStr < todayS;
 
   let doneDates = db.doneEvents[evId];
   if (!Array.isArray(doneDates)) {
@@ -1105,26 +1238,33 @@ function toggleDone(evId, targetDateStr, isExpired = false){
   let isDone = false;
   let relatedDates = [];
 
-  if (ev.freq === "每周") {
-    const targetWeekKey = getWeekKey(targetDateStr);
-    relatedDates = doneDates.filter(d => getWeekKey(d) === targetWeekKey);
-    isDone = relatedDates.length > 0;
-  } else if (ev.freq === "每月") {
-    const td = new Date(targetDateStr + 'T00:00:00');
-    relatedDates = doneDates.filter(d => {
-      const dd = new Date(d + 'T00:00:00');
-      return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth();
-    });
-    isDone = relatedDates.length > 0;
-  } else {
+  if (isPastTab) {
     if (doneDates.includes(recordDateStr)) {
       isDone = true;
       relatedDates = [recordDateStr];
-    } else if (targetDateStr === todayStr()) {
-      const evToday = getEvTodayStr(ev);
-      if (evToday !== recordDateStr && doneDates.includes(evToday)) {
+    }
+  } else {
+    if (ev.freq === "每周") {
+      const targetWeekKey = getWeekKey(targetDateStr);
+      relatedDates = doneDates.filter(d => getWeekKey(d) === targetWeekKey);
+      isDone = relatedDates.length > 0;
+    } else if (ev.freq === "每月") {
+      const td = new Date(targetDateStr + 'T00:00:00');
+      relatedDates = doneDates.filter(d => {
+        const dd = new Date(d + 'T00:00:00');
+        return dd.getFullYear() === td.getFullYear() && dd.getMonth() === td.getMonth();
+      });
+      isDone = relatedDates.length > 0;
+    } else {
+      if (doneDates.includes(recordDateStr)) {
         isDone = true;
-        relatedDates = [evToday];
+        relatedDates = [recordDateStr];
+      } else if (targetDateStr === todayS) {
+        const evToday = getEvTodayStr(ev);
+        if (evToday !== recordDateStr && doneDates.includes(evToday)) {
+          isDone = true;
+          relatedDates = [evToday];
+        }
       }
     }
   }
@@ -1144,6 +1284,11 @@ function toggleDone(evId, targetDateStr, isExpired = false){
     pushUndo("完成待办");
     if (!db.doneEvents[evId]) db.doneEvents[evId] = [];
     db.doneEvents[evId].push(recordDateStr);
+    
+    if (db.skippedEvents[evId]) {
+      db.skippedEvents[evId] = db.skippedEvents[evId].filter(d => d !== recordDateStr && d !== targetDateStr);
+      if (db.skippedEvents[evId].length === 0) delete db.skippedEvents[evId];
+    }
 
     const runningTimer = Object.values(db.timers).find(t => t.eventId === evId);
     if (runningTimer) {
@@ -1178,7 +1323,7 @@ function toggleDone(evId, targetDateStr, isExpired = false){
 
         if (shouldRecord) {
           let endTime;
-          if (targetDateStr === todayStr()) {
+          if (targetDateStr === todayS) {
             endTime = new Date();
           } else {
             const [y, m, d] = targetDateStr.split('-').map(Number);
@@ -1232,7 +1377,6 @@ function archiveAllExpired() {
   alert("已清理并归档所有过期任务。");
 }
 
-/* ================= 计时与联动 ================= */
 function renderGlobalTimers(){
   const wrap = document.getElementById("globalTimerList"); 
   const timers = Object.values(db.timers);
@@ -1277,7 +1421,7 @@ function renderGlobalTimers(){
 function startCatTimer(fullPath) { startTimerForEvent("cat_" + fullPath); }
 
 function startTimerForEvent(eventId){ 
-  const tid = Date.now().toString(); 
+  const tid = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 6); 
   db.timers[tid] = { tid, eventId, startAt: Date.now() }; 
   db.pausedTimers = db.pausedTimers.filter(id => id !== eventId); 
   
@@ -1312,6 +1456,13 @@ function finishTimer(tid){
       const evToday = getEvTodayStr(ev);
       if (!Array.isArray(db.doneEvents[ev.id])) db.doneEvents[ev.id] = db.doneEvents[ev.id] ? [db.doneEvents[ev.id]] : [];
       if (!db.doneEvents[ev.id].includes(evToday)) db.doneEvents[ev.id].push(evToday);
+      
+      if (db.skippedEvents[ev.id]) {
+        const todayS = todayStr();
+        db.skippedEvents[ev.id] = db.skippedEvents[ev.id].filter(d => d !== evToday && d !== todayS);
+        if (db.skippedEvents[ev.id].length === 0) delete db.skippedEvents[ev.id];
+      }
+      
       saveDB(); renderTodos();
     }
   }
@@ -1328,7 +1479,7 @@ function stopTimer(tid, silent = false){
   if (!silent) { renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis(); renderStats(); }
 }
 
-/* ================= 连续时间轴 (日历视图) ================= */
+/* ================= 时间轴 ================= */
 const eventColors = ["#ef4444","#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f43f5e","#84cc16","#06b6d4"];
 function getCatColor(cat) {
     let hash = 0;
@@ -1472,7 +1623,6 @@ function renderAxis(){
       
       const topPx = startMin * currentAxisScale; 
       const realHeight = durationMin * currentAxisScale;
-      
       const blockHeight = Math.max(realHeight, 22);
       
       const block = document.createElement("div");
@@ -1889,31 +2039,202 @@ function renderHeatmap(recs, baseDate) {
   }
 }
 
-/* ================= 分类树与排序 ================= */
-function renderPinnedArea() {
-    const wrap = document.getElementById("pinnedArea");
-    const pinned = db.events.filter(e => e.isPinned && !e.isArchived);
-    if (!pinned.length) { wrap.style.display = "none"; return; }
-    wrap.style.display = "flex";
-    wrap.innerHTML = "";
-    
-    pinned.forEach(ev => {
-        const chip = document.createElement("div");
-        chip.className = "pinned-chip";
-        const isRunning = Object.values(db.timers).some(t => t.eventId === ev.id);
-        chip.innerHTML = `<span>${isRunning ? '⏸' : '▶'}</span> ${ev.name}`;
-        chip.onclick = () => {
-            if (isRunning) {
-                const tid = Object.values(db.timers).find(t => t.eventId === ev.id).tid;
-                pauseTimer(tid);
-            } else {
-                startTimerForEvent(ev.id);
-            }
-        };
-        wrap.appendChild(chip);
-    });
+/* ================= 顶部常用区 / 组合 ================= */
+function togglePinnedView() {
+  currentPinnedMode = currentPinnedMode === 'pinned' ? 'combo' : 'pinned';
+  renderPinnedArea();
 }
 
+function computeTopCombos(topN) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const recent = db.records.filter(r => new Date(r.start) >= cutoff);
+  
+  const eventIdMap = {};
+  db.events.forEach(ev => { eventIdMap[ev.id] = ev.name; });
+  
+  let events = [];
+  recent.forEach(r => {
+    const st = new Date(r.start).getTime();
+    const et = new Date(r.end).getTime();
+    const name = r.name || "未知";
+    events.push({ time: st, type: 'start', eventId: r.eventId, name });
+    events.push({ time: et, type: 'end', eventId: r.eventId, name });
+  });
+  events.sort((a, b) => a.time - b.time || (a.type === 'end' ? -1 : 1));
+  
+  let active = new Map();
+  let lastTime = null;
+  let concurrentMap = {};
+  
+  events.forEach(e => {
+    if (lastTime !== null && e.time > lastTime) {
+      if (active.size > 1) {
+        const ids = Array.from(active.keys()).sort();
+        const comboKey = ids.join("|");
+        const dur = e.time - lastTime;
+        if (!concurrentMap[comboKey]) {
+          concurrentMap[comboKey] = { dur: 0, eventIds: ids, names: ids.map(id => active.get(id)) };
+        }
+        concurrentMap[comboKey].dur += dur;
+      }
+    }
+    if (e.type === 'start') {
+      if (eventIdMap[e.eventId] !== undefined) {
+        active.set(e.eventId, eventIdMap[e.eventId]);
+      }
+    } else {
+      active.delete(e.eventId);
+    }
+    lastTime = e.time;
+  });
+  
+  return Object.values(concurrentMap).sort((a, b) => b.dur - a.dur).slice(0, topN);
+}
+
+function renderComboList(list, topCombos, pinnedKeys) {
+  const combos = [];
+  const seen = new Set();
+  
+  pinnedKeys.forEach(key => {
+    const found = topCombos.find(c => c.eventIds.join("|") === key);
+    if (found) {
+      combos.push({ ...found, key, pinned: true });
+      seen.add(key);
+    }
+  });
+  
+  topCombos.forEach(c => {
+    const key = c.eventIds.join("|");
+    if (!seen.has(key)) {
+      combos.push({ ...c, key, pinned: false });
+      seen.add(key);
+    }
+  });
+  
+  if (combos.length === 0) {
+    list.innerHTML = '<div class="meta-small" style="padding:10px">暂无并发组合</div>';
+    return;
+  }
+  
+  combos.forEach(c => {
+    const row = document.createElement("div");
+    row.className = "combo-row";
+    row.innerHTML = `
+      <span class="combo-names">${c.names.join(" + ")}</span>
+      <span class="combo-dur">${formatDuration(c.dur)}</span>
+      <button class="combo-pin-btn" title="${c.pinned ? '取消钉住' : '钉住'}">${c.pinned ? '📌' : '📍'}</button>
+      <button class="combo-launch-btn" title="一键全开">▶ 全开</button>
+    `;
+    row.querySelector('.combo-pin-btn').onclick = (e) => {
+      e.stopPropagation();
+      togglePinCombo(c.key);
+    };
+    row.querySelector('.combo-launch-btn').onclick = (e) => {
+      e.stopPropagation();
+      launchCombo(c.key);
+    };
+    list.appendChild(row);
+  });
+}
+
+function togglePinCombo(comboKey) {
+  const pinned = db.settings.pinnedCombos || [];
+  if (pinned.includes(comboKey)) {
+    db.settings.pinnedCombos = pinned.filter(k => k !== comboKey);
+  } else {
+    db.settings.pinnedCombos = [...pinned, comboKey];
+  }
+  saveDB();
+  renderPinnedArea();
+}
+
+function launchCombo(comboKey) {
+  const ids = comboKey.split("|");
+  const todayDateStr = todayStr();
+  let started = 0;
+  
+  ids.forEach(id => {
+    const ev = db.events.find(e => e.id === id);
+    if (!ev) return;
+    if (ev.isArchived) return;
+    
+    const running = Object.values(db.timers).find(t => t.eventId === id);
+    if (running) return;
+    
+    if (isEventDoneForDate(ev, todayDateStr)) return;
+    if (isEventSkippedForDate(id, todayDateStr)) return;
+    
+    const tid = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 6);
+    db.timers[tid] = { tid, eventId: id, startAt: Date.now() };
+    db.pausedTimers = db.pausedTimers.filter(x => x !== id);
+    started++;
+  });
+  
+  saveDB();
+  renderGlobalTimers();
+  renderTodos();
+  renderCatTree();
+  
+  if (started > 0) showToast(`已启动 ${started} 个计时`);
+  else showToast('没有可启动的事项');
+}
+
+function renderPinnedArea() {
+  const wrap = document.getElementById("pinnedWrap");
+  const btn = document.getElementById("pinnedToggleBtn");
+  const list = document.getElementById("pinnedList");
+  const icon = document.getElementById("pinnedModeIcon");
+  
+  if (!wrap || !list) return;
+  
+  const pinned = db.events.filter(e => e.isPinned && !e.isArchived);
+  const topCombos = computeTopCombos(8);
+  const pinnedKeys = db.settings.pinnedCombos || [];
+  const hasCombos = topCombos.length > 0 || pinnedKeys.length > 0;
+  
+  if (currentPinnedMode === 'combo' && !hasCombos) currentPinnedMode = 'pinned';
+  
+  if (!pinned.length && !hasCombos) {
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "flex";
+  
+  btn.style.display = hasCombos ? "inline-flex" : "none";
+  icon.innerText = currentPinnedMode === 'combo' ? "★" : "⧉";
+  btn.title = currentPinnedMode === 'combo' ? "切回常用" : "切到组合";
+  
+  list.innerHTML = "";
+  list.className = "pinned-list";
+  
+  if (currentPinnedMode === 'pinned') {
+    if (!pinned.length) {
+      wrap.style.display = "none";
+      return;
+    }
+    pinned.forEach(ev => {
+      const chip = document.createElement("div");
+      chip.className = "pinned-chip";
+      const isRunning = Object.values(db.timers).some(t => t.eventId === ev.id);
+      chip.innerHTML = `<span>${isRunning ? '⏸' : '▶'}</span> ${ev.name}`;
+      chip.onclick = () => {
+        if (isRunning) {
+          const tid = Object.values(db.timers).find(t => t.eventId === ev.id).tid;
+          pauseTimer(tid);
+        } else {
+          startTimerForEvent(ev.id);
+        }
+      };
+      list.appendChild(chip);
+    });
+  } else {
+    list.classList.add("vertical");
+    renderComboList(list, topCombos, pinnedKeys);
+  }
+}
+
+/* ================= 分类树 ================= */
 function renderCatTree(){
   const searchTxt = document.getElementById("searchTree").value.toLowerCase();
   const fullCats = new Set();
@@ -2134,7 +2455,7 @@ function renderCatTree(){
   wrap.appendChild(renderNode(tree, 0));
 }
 
-/* ================= 其他辅助函数 ================= */
+/* ================= 其他辅助 ================= */
 function addNewEvent(fullPath){ 
   pushUndo("新增");
   isNewEventMode = true;
@@ -2163,6 +2484,7 @@ function deleteCurrentEvent(){
   pushUndo("删除事项");
   db.events = db.events.filter(e => e.id !== currentEditEventId); 
   delete db.doneEvents[currentEditEventId];
+  delete db.skippedEvents[currentEditEventId];
   db.batchChecked.delete(currentEditEventId); 
   saveDB(); renderCatTree(); renderTodos(); renderAxis(); closeEditModal();
 }
@@ -2176,15 +2498,6 @@ function calcDeadline(){
   if(days === 0 && hours === 0 && mins === 0) return;
   const target = new Date(Date.now() + (days*24*3600 + hours*3600 + mins*60)*1000);
   document.getElementById("editDeadline").value = formatDatetimeLocal(target);
-}
-
-function calcBatchDeadline(){
-  const days = Number(document.getElementById("batchCountDay").value || 0);
-  const hours = Number(document.getElementById("batchCountHour").value || 0);
-  const mins = Number(document.getElementById("batchCountMin").value || 0);
-  if(days === 0 && hours === 0 && mins === 0) return;
-  const target = new Date(Date.now() + (days*24*3600 + hours*3600 + mins*60)*1000);
-  document.getElementById("batchDeadline").value = formatDatetimeLocal(target);
 }
 
 function calcAxisTime(source) {
@@ -2243,7 +2556,6 @@ function calcAxisEditTime(source) {
   }
 }
 
-/* ================= 撤销 ================= */
 function pushUndo(actionName) {
   const snap = JSON.stringify({ ...db, batchChecked: Array.from(db.batchChecked) });
   if (undoStack.length > 0 && undoStack[undoStack.length - 1].snap === snap) return;
@@ -2270,7 +2582,6 @@ function updateUndoBtn() {
   }
 }
 
-/* ================= 其他工具函数 ================= */
 function toggleCollapse(bodyId, titleEl, fullPath) {
   const body = document.getElementById(bodyId);
   if (!body) return;
@@ -2312,9 +2623,6 @@ function openBatchModal(){
   document.getElementById("batchEst").value = "";
   document.getElementById("batchDayBoundary").value = "";
   document.getElementById("batchDeadline").value = "";
-  document.getElementById("batchCountDay").value = "";
-  document.getElementById("batchCountHour").value = "";
-  document.getElementById("batchCountMin").value = "";
   document.getElementById("batchCountInfo").innerText = `（已选 ${db.batchChecked.size} 个事项）`;
   document.getElementById("batchModal").classList.add("show");
 }
@@ -2355,7 +2663,7 @@ function batchDeleteSelected(){
   if(!confirm(`确定删除选中的 ${ids.length} 个事项吗？`)) return;
   pushUndo("批量删除");
   db.events = db.events.filter(e => !ids.includes(e.id));
-  ids.forEach(id => { delete db.doneEvents[id]; db.records = db.records.filter(r => r.eventId !== id); db.pulledEvents = db.pulledEvents.filter(x => x !== id); });
+  ids.forEach(id => { delete db.doneEvents[id]; delete db.skippedEvents[id]; db.records = db.records.filter(r => r.eventId !== id); db.pulledEvents = db.pulledEvents.filter(x => x !== id); });
   db.batchChecked.clear(); 
   saveDB(); closeBatchModal(); renderAll();
 }
@@ -2401,7 +2709,6 @@ function renderAddTasksList() {
   });
 }
 
-/* ================= 单个事项历史 ================= */
 function openSingleEventDetail(evId){
   currentSingleEventId = evId;
   currentSingleEventGrain = 'day';
@@ -2422,41 +2729,27 @@ function openSingleEventDetail(evId){
   renderSingleEventDetail();
   document.getElementById("singleEventModal").classList.add("show");
 }
-
-function closeSingleEventModal(){
-  document.getElementById("singleEventModal").classList.remove("show");
-}
-
+function closeSingleEventModal(){ document.getElementById("singleEventModal").classList.remove("show"); }
 function onSingleEventGrainChange(){
   currentSingleEventGrain = document.getElementById("singleEventGrain").value;
   currentSingleEventAnchor = todayStr();
   renderSingleEventDetail();
 }
-
 function shiftSingleEventPeriod(dir){
   if (!currentSingleEventAnchor) currentSingleEventAnchor = todayStr();
   const d = new Date(currentSingleEventAnchor + 'T00:00:00');
-  if (currentSingleEventGrain === 'day') {
-    d.setDate(d.getDate() + dir);
-  } else if (currentSingleEventGrain === 'week') {
-    d.setDate(d.getDate() + dir * 7);
-  } else if (currentSingleEventGrain === 'month') {
-    d.setMonth(d.getMonth() + dir);
-  }
+  if (currentSingleEventGrain === 'day') d.setDate(d.getDate() + dir);
+  else if (currentSingleEventGrain === 'week') d.setDate(d.getDate() + dir * 7);
+  else if (currentSingleEventGrain === 'month') d.setMonth(d.getMonth() + dir);
   currentSingleEventAnchor = dateToStr(d);
   renderSingleEventDetail();
 }
-
-function jumpSingleEventToNow(){
-  currentSingleEventAnchor = todayStr();
-  renderSingleEventDetail();
-}
+function jumpSingleEventToNow(){ currentSingleEventAnchor = todayStr(); renderSingleEventDetail(); }
 
 function getSingleEventPeriodRange(){
   const anchor = currentSingleEventAnchor || todayStr();
   const d = new Date(anchor + 'T00:00:00');
   let start, end, label;
-
   if (currentSingleEventGrain === 'day') {
     start = new Date(d); start.setHours(0,0,0,0);
     end = new Date(d); end.setHours(23,59,59,999);
@@ -2506,11 +2799,7 @@ function renderSingleEventDetail(){
 
   document.getElementById("singleRecordList").innerHTML = listHtml || "<div class='meta-small' style='padding:10px;text-align:center'>该周期内无记录</div>";
 }
-
-function editSingleRecord(rid){
-  openAxisEditModal(rid);
-}
-
+function editSingleRecord(rid){ openAxisEditModal(rid); }
 function deleteSingleRecord(rid){
   if (!confirm("确定删除这条记录吗？")) return;
   pushUndo("删除记录");
@@ -2520,7 +2809,6 @@ function deleteSingleRecord(rid){
   renderAxis();
   renderStats();
 }
-
 function viewEventHistory() {
   if(isNewEventMode) return alert("尚未创建，无历史记录");
   const evId = currentEditEventId;
@@ -2572,10 +2860,13 @@ function importBackup(input){
   r.onload = e => {
     try{
       pushUndo("导入备份"); const data = JSON.parse(e.target.result); db = data;
-      db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}}; 
+      db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}}; 
       if(!db.settings.todoCatFilters) db.settings.todoCatFilters = [];
+      if(!db.settings.todoViewMode) db.settings.todoViewMode = 'all';
+      if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
       if(!db.settings.quadCollapsed) db.settings.quadCollapsed = {1:false,2:false,3:false,4:false,0:false};
-      db.doneEvents = db.doneEvents || {}; db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
+      db.doneEvents = db.doneEvents || {}; db.skippedEvents = db.skippedEvents || {}; 
+      db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
       db.pausedTimers = db.pausedTimers || []; db.pulledEvents = db.pulledEvents || []; db.selectedCats = db.selectedCats || []; db.collapsedCats = db.collapsedCats || [];
       db.events.forEach(ev => { 
           if(!ev.cat) ev.cat = "未分类"; if(ev.quad === undefined) ev.quad = 2; if(ev.est === undefined) ev.est = 30; 
