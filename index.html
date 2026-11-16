@@ -1009,7 +1009,13 @@ function getFilteredTasksForDate(targetViewDateStr) {
   db.events.forEach(ev => {
     if (ev.isArchived) return;
     
-    if ((ev.freq === "长期" || ev.freq === "常驻") && !db.pulledEvents.includes(ev.id)) return;
+    // 常驻事项只有在任务池拉取，或今日已完成的情况下才显示；长期保持原逻辑
+    const isPulled = db.pulledEvents.includes(ev.id);
+    if (ev.freq === "长期" && !isPulled) return;
+    if (ev.freq === "常驻" && !isPulled) {
+        const isDoneThisView = isEventDoneForDate(ev, targetViewDateStr);
+        if (!isDoneThisView) return;
+    }
 
     let isForView = false;
     const evTodayStr = getEvTodayStr(ev, realNow);
@@ -1921,8 +1927,9 @@ function renderStats(){
   });
   const catArray = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
   
+  const maxV = catArray.length > 0 ? catArray[0][1] : 0;
   const catHtml = catArray.map(([k, v], idx) => {
-    const pct = totalMs > 0 ? (v / totalMs) * 100 : 0;
+    const pct = maxV > 0 ? (v / maxV) * 100 : 0;
     return `<div class="rank-item">
       <span style="font-weight:500; width:80px; word-break:break-all;">${k}</span>
       <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${pct}%; background:${colors[idx%colors.length]};"></div></div>
