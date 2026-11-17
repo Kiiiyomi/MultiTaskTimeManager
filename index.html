@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -60,7 +59,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .custom-select-wrap { position: relative; display: inline-block; }
 .custom-select-btn { padding: 6px 12px; font-size: 14px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; color: #333; display: flex; align-items: center; justify-content: space-between; cursor: pointer; min-width: 100px; gap: 8px;}
 .custom-select-btn.active { border-color: #409c94; }
-.custom-select-dropdown { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; width: 220px; max-height: 280px; display: none; flex-direction: column; }
+.custom-select-dropdown { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; width: 240px; max-height: 280px; display: none; flex-direction: column; }
 .custom-select-dropdown.show { display: flex; }
 .cat-filter-actions { display: flex; gap: 6px; padding: 6px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; border-radius: 8px 8px 0 0; }
 .cat-filter-actions button { flex: 1; padding: 4px 0; font-size: 12px; background: #fff; border: 1px solid #cbd5e1; color: #475569; font-weight: normal; border-radius: 4px; }
@@ -1012,23 +1011,31 @@ function renderCatFilterDropdown() {
   const dropdown = document.getElementById("catFilterList");
   dropdown.innerHTML = "";
   
-  const allPaths = new Set();
+  // 提取所有被未归档事项引用的分类
+  const usedCats = new Set();
   db.events.forEach(ev => {
+    if (ev.isArchived) return;
     if(!ev.cat) ev.cat = "未分类";
-    const parts = ev.cat.split("/").filter(Boolean);
-    let path = "";
-    parts.forEach(p => {
-      path = path ? path + "/" + p : p;
-      allPaths.add(path);
-    });
+    usedCats.add(ev.cat);
   });
-  const cats = Array.from(allPaths).sort();
+
+  // 从 db.categories 中过滤出有事项的分类，并保持 db.categories 的现有顺序（即分类树顺序）
+  const cats = db.categories.filter(c => {
+      if (!usedCats.has(c)) {
+          // 检查是否有子分类在用
+          const hasSub = Array.from(usedCats).some(u => u.startsWith(c + "/"));
+          if (!hasSub) return false;
+      }
+      return true;
+  });
 
   cats.forEach(c => {
     const div = document.createElement("label");
     div.className = "cat-filter-item";
     const isChecked = db.settings.todoCatFilters.includes(c);
-    div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; word-break:break-all;">${c}</span>`;
+    const depth = c.split('/').length - 1;
+    // 增加一点左侧缩进表现层级
+    div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; padding-left:${depth * 8}px; word-break:break-all;">${c}</span>`;
     div.querySelector('input').onchange = (e) => {
       if (e.target.checked) {
         if (!db.settings.todoCatFilters.includes(c)) db.settings.todoCatFilters.push(c);
@@ -1054,11 +1061,6 @@ function getFilteredTasksForDate(targetViewDateStr) {
     if (ev.isArchived) return;
     
     const isPulled = db.pulledEvents.includes(ev.id);
-    if (ev.freq === "长期" && !isPulled) return;
-    if (ev.freq === "常驻" && !isPulled) {
-        const isDoneThisView = isEventDoneForDate(ev, targetViewDateStr);
-        if (!isDoneThisView) return;
-    }
 
     let isForView = false;
     const evTodayStr = getEvTodayStr(ev, realNow);
@@ -1094,6 +1096,13 @@ function getFilteredTasksForDate(targetViewDateStr) {
     }
 
     const isDone = isEventDoneForDate(ev, targetViewDateStr);
+
+    // 未拉取的长期/常驻事项：只允许“今天”且“已完成”状态下出现在待办中
+    if ((ev.freq === "长期" || ev.freq === "常驻") && !isPulled) {
+        const isToday = (targetViewDateStr === realNowStr);
+        if (!isToday || !isDone) return; 
+    }
+
     const isSkipped = isEventSkippedForDate(ev.id, targetViewDateStr);
 
     result.push({ ev, isDone, isSkipped });
@@ -1474,10 +1483,7 @@ function startTimerForEvent(eventId){
   db.timers[tid] = { tid, eventId, startAt: Date.now() }; 
   db.pausedTimers = db.pausedTimers.filter(id => id !== eventId); 
   
-  const ev = db.events.find(e => e.id === eventId);
-  if (ev && (ev.freq === "长期" || ev.freq === "常驻")) {
-      if (!db.pulledEvents.includes(ev.id)) db.pulledEvents.push(ev.id);
-  }
+  // 删除了计时自动把长期/常驻拉入待办的逻辑，只能通过任务池拉取
 
   saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree();
 }
