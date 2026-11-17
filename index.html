@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -197,6 +198,14 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   .chart-row { flex-direction: row; flex-wrap: wrap; }
   .chart-col { flex: 1; min-width: 280px; }
 }
+
+/* 备份页新样式 */
+details { background: #f8fafc; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #64748b; cursor: pointer; }
+summary { font-weight: 600; outline: none; }
+details p { margin: 8px 0 0 0; line-height: 1.5; }
+.hint { font-size: 11px; color: #94a3b8; text-align: center; margin-top: -4px; margin-bottom: 10px; }
+.btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.btn-row button { flex: 1; padding: 12px 0; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -383,20 +392,55 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 </div>
 
 <div class="panel" id="batch">
+<!-- 1. 高频：剪贴板极速同步 -->
 <div class="card">
-<h3>TXT批量导入</h3>
-<div class="meta-small" style="margin-bottom:8px">支持 4-6 个字段：[唯一ID],分类,事项名,循环频率,预估分钟,[象限]</div>
-<textarea id="batchText" style="min-height:100px;"></textarea>
-<button onclick="batchImport()" style="margin-top:10px; width:100%;">批量导入</button>
+  <div class="title" style="display:flex; justify-content:space-between; font-size:15px; font-weight:600; color:#2c7c74; margin-bottom:12px;">
+    📋 剪贴板极速同步 <span style="font-size:11px; font-weight:normal; color:#94a3b8;">手机平板互传</span>
+  </div>
+  
+  <div class="btn-row">
+    <button onclick="copyToClipboard()" style="background:#3b82f6;">📤 复制备份</button>
+    <button onclick="pasteFromClipboard()" style="background:#8b5cf6;">📥 粘贴恢复</button>
+  </div>
+  
+  <textarea id="backupClipboardText" placeholder="点击“复制备份”会复制到剪贴板；点击“粘贴恢复”会自动读取剪贴板；也可手动在此粘贴代码。" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; background:#f8fafc; min-height:80px; resize:vertical; font-family:monospace; margin-bottom:10px;"></textarea>
+  
+  <button onclick="restoreFromText()" style="width:100%; background:#f59e0b; font-weight:bold;">从上方文本恢复数据 (会覆盖)</button>
 </div>
+
+<!-- 2. 中频：本地文件备份 -->
 <div class="card">
-<h3>备份 & 恢复</h3>
-<div class="flex-row">
-<button onclick="exportBackup()" style="flex:1">导出JSON</button>
-<button onclick="document.getElementById('importFile').click()" style="flex:1">导入JSON</button>
-<button onclick="exportToTXT()" style="flex:1;background:#4caf50">导出TXT</button>
-<input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(this)">
+  <div class="title" style="font-size:15px; font-weight:600; color:#2c7c74; margin-bottom:12px;">💾 本地文件备份</div>
+  
+  <div class="btn-row">
+    <button onclick="exportBackup()" style="background:#409c94;">导出JSON</button>
+    <button onclick="document.getElementById('importFile').click()" style="background:#fff; color:#475569; border:1px solid #cbd5e1;">导入JSON</button>
+    <button onclick="exportToTXT()" style="background:#4caf50;">导出TXT(仅事项)</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(this)">
+  </div>
+  
+  <details>
+    <summary>为什么建议定期导出 JSON？</summary>
+    <p>JSON 包含了你所有的待办、时间记录和设置。清除浏览器数据会导致工具内数据丢失，请务必每个月导出一次文件保存在本地。</p>
+  </details>
 </div>
+
+<!-- 3. 低频：TXT 批量添加/修改 -->
+<div class="card">
+  <div class="title" style="font-size:15px; font-weight:600; color:#2c7c74; margin-bottom:12px;">📝 TXT 批量添加与修改</div>
+  
+  <details>
+    <summary>查看格式要求和操作指南</summary>
+    <p>格式（用英文或中文逗号隔开）：<br>
+    <b>[ID], 分类, 事项名, 循环频率, 预估分钟, [可选象限], [可选截止时间]</b><br>
+    <br>
+    <b>如何修改已有事项（如移动分类）？</b><br>
+    先在上方“本地文件备份”中点击“导出TXT(仅事项)”，打开文件修改后（保留第一列的 ID_xxx），把内容粘贴到下方即可更新原有数据，不会产生重复事项。</p>
+  </details>
+
+  <textarea id="batchText" placeholder="在此粘贴你的 TXT 文本...如果带有系统导出的ID，则进行修改；如果不带ID，则新增事项。" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; background:#f8fafc; min-height:100px; resize:vertical; margin-bottom:10px;"></textarea>
+  <button onclick="batchImport()" style="width: 100%;">➕ 确认批量导入/更新</button>
+  <div class="hint">此操作不会删除未在文本中出现的事项</div>
 </div>
 </div>
 
@@ -1009,7 +1053,6 @@ function getFilteredTasksForDate(targetViewDateStr) {
   db.events.forEach(ev => {
     if (ev.isArchived) return;
     
-    // 常驻事项只有在任务池拉取，或今日已完成的情况下才显示；长期保持原逻辑
     const isPulled = db.pulledEvents.includes(ev.id);
     if (ev.freq === "长期" && !isPulled) return;
     if (ev.freq === "常驻" && !isPulled) {
@@ -2829,26 +2872,56 @@ function batchImport(){
   pushUndo("导入TXT");
   lines.forEach(line => {
     const parts = line.trim().split(/[,，]/).map(p => p.trim()); if(parts.length < 4) return;
-    let id, catName, evName, freq, estStr, quadStr = "2";
-    if (parts[0].startsWith("ID_") || /^\d{10,}$/.test(parts[0])) [id, catName, evName, freq, estStr, quadStr] = parts;
-    else { id = "ID_" + Date.now().toString() + Math.floor(Math.random()*1000); [catName, evName, freq, estStr, quadStr] = parts; }
+    let id, catName, evName, freq, estStr, quadStr = "2", deadlineStr = "";
+    if (parts[0].startsWith("ID_") || /^\d{10,}$/.test(parts[0])) [id, catName, evName, freq, estStr, quadStr, deadlineStr] = parts;
+    else { id = "ID_" + Date.now().toString() + Math.floor(Math.random()*1000); [catName, evName, freq, estStr, quadStr, deadlineStr] = parts; }
     if(!catName || !evName) return;
     if(!db.categories.includes(catName)) db.categories.push(catName);
     const lookupId2 = id.startsWith("ID_") ? id.replace("ID_", "") : "ID_" + id;
     const existing = db.events.find(e => e.id === id || e.id === lookupId2);
     let quadVal = 0; if (quadStr && ["1","2","3","4"].includes(quadStr)) quadVal = Number(quadStr);
+    
+    // 处理截止时间
+    let finalDeadline = "";
+    if (deadlineStr) {
+        const d = new Date(deadlineStr.replace(/-/g, '/').replace(/T/, ' '));
+        if (!isNaN(d.getTime())) {
+            if (deadlineStr.length <= 10) d.setHours(23, 59, 59, 0); // 如果只有日期，默认当天 23:59
+            finalDeadline = formatDatetimeLocal(d);
+        }
+    }
+
     if (existing) {
-      existing.cat = catName; existing.name = evName; existing.freq = freq; existing.est = Number(estStr)||30; existing.quad = quadVal; updated++;
+      // 带ID，执行修改更新
+      existing.cat = catName; existing.name = evName; existing.freq = freq; existing.est = Number(estStr)||30; existing.quad = quadVal; 
+      if (deadlineStr) existing.deadline = finalDeadline;
+      updated++;
     } else {
-      db.events.push({ id: id, cat: catName, name: evName, freq: freq, est: Number(estStr)||30, quad: quadVal }); added++;
+      // 无ID或ID不存在，执行新增
+      db.events.push({ id: id, cat: catName, name: evName, freq: freq, est: Number(estStr)||30, quad: quadVal, deadline: finalDeadline }); added++;
     }
   });
-  saveDB(); renderAll(); alert(`新增 ${added} 条，更新 ${updated} 条。`);
+  saveDB(); renderAll(); alert(`操作完成：新增 ${added} 条，更新 ${updated} 条。`);
 }
 
 function exportToTXT() {
-  const lines = db.events.map(e => [(e.id.startsWith("ID_") ? e.id : "ID_" + e.id), e.cat, e.name, e.freq, e.est, e.quad].join(","));
-  const blob = new Blob(["# [ID,分类,事项名,循环频率,预估分钟,象限]\n" + lines.join("\n")], { type: "text/plain;charset=utf-8" });
+  // 按分类树顺序排序（通过 db.categories 索引）
+  const catOrder = {};
+  db.categories.forEach((c, i) => { catOrder[c] = i; });
+  
+  const sortedEvents = [...db.events].sort((a, b) => {
+    const orderA = catOrder[a.cat] !== undefined ? catOrder[a.cat] : 9999;
+    const orderB = catOrder[b.cat] !== undefined ? catOrder[b.cat] : 9999;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.name.localeCompare(b.name); // 同分类下按名称排序，方便核对
+  });
+
+  const lines = sortedEvents.map(e => {
+      let line = [(e.id.startsWith("ID_") ? e.id : "ID_" + e.id), e.cat, e.name, e.freq, e.est, e.quad];
+      if (e.deadline) line.push(e.deadline);
+      return line.join(",");
+  });
+  const blob = new Blob(["# [ID,分类,事项名,循环频率,预估分钟,象限,截止时间]\n" + lines.join("\n")], { type: "text/plain;charset=utf-8" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "MultiTaskTimeManager_Tasks_" + getFullTimeStr() + ".txt"; a.click(); URL.revokeObjectURL(a.href);
 }
 
@@ -2887,6 +2960,75 @@ function importBackup(input){
       renderAll(); alert("备份恢复成功");
     }catch(err){ alert("解析失败：" + err.message); }
   }; r.readAsText(f); input.value = "";
+}
+
+/* ================= 剪贴板同步逻辑 ================= */
+function copyToClipboard() {
+    const text = JSON.stringify({...db, batchChecked: Array.from(db.batchChecked)}, null, 2);
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('✅ 备份已复制到剪贴板');
+        }).catch(err => {
+            showToast('⚠️ 复制失败，已填入下方文本框供手动复制');
+            document.getElementById("backupClipboardText").value = text;
+        });
+    } else {
+        showToast('⚠️ 浏览器限制无法直接复制，已填入下方文本框供手动复制');
+        document.getElementById("backupClipboardText").value = text;
+    }
+}
+
+function pasteFromClipboard() {
+    if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) {
+        navigator.clipboard.readText().then(text => {
+            document.getElementById("backupClipboardText").value = text;
+            showToast('✅ 已读取剪贴板内容，确认无误后请点击下方【从上方文本恢复数据】');
+        }).catch(err => {
+            showToast('❌ 浏览器拒绝读取剪贴板，请手动粘贴到下方文本框');
+            document.getElementById("backupClipboardText").focus();
+        });
+    } else {
+        showToast('⚠️ 当前环境不支持直接读取剪贴板，请手动粘贴到下方文本框');
+        document.getElementById("backupClipboardText").focus();
+    }
+}
+
+function restoreFromText() {
+    const text = document.getElementById("backupClipboardText").value.trim();
+    if (!text) {
+        return showToast('❌ 文本框为空，无法恢复');
+    }
+    try {
+        const data = JSON.parse(text);
+        if (!confirm("⚠️ 检测到备份数据，确认覆盖当前设备的所有数据吗？（此操作不可逆）")) {
+            return;
+        }
+        
+        pushUndo("从文本恢复备份");
+        db = data;
+        db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}}; 
+        if(!db.settings.todoCatFilters) db.settings.todoCatFilters = [];
+        if(!db.settings.todoViewMode) db.settings.todoViewMode = 'all';
+        if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
+        if(!db.settings.quadCollapsed) db.settings.quadCollapsed = {1:false,2:false,3:false,4:false,0:false};
+        db.doneEvents = db.doneEvents || {}; db.skippedEvents = db.skippedEvents || {}; 
+        db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
+        db.pausedTimers = db.pausedTimers || []; db.pulledEvents = db.pulledEvents || []; db.selectedCats = db.selectedCats || []; db.collapsedCats = db.collapsedCats || [];
+        db.events.forEach(ev => { 
+            if(!ev.cat) ev.cat = "未分类"; if(ev.quad === undefined) ev.quad = 2; if(ev.est === undefined) ev.est = 30; 
+            if(!ev.freq) ev.freq = ev.repeatPlan || "每日"; if(ev.note === undefined) ev.note = ""; if(ev.dayBoundary === undefined) ev.dayBoundary = "";
+            if(ev.isPinned === undefined) ev.isPinned = false;
+        });
+        db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []); 
+        cleanupOldData();
+        saveDB(); 
+        document.getElementById("sleepNeed").value = db.settings.sleepNeed;
+        renderAll(); 
+        showToast('🎉 数据恢复成功');
+    } catch(e) {
+        showToast('❌ 格式错误，不是有效的备份数据');
+    }
 }
 
 document.querySelectorAll(".tab").forEach(t => {
