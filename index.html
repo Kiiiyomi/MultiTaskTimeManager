@@ -394,7 +394,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <!-- 1. 高频：剪贴板极速同步 -->
 <div class="card">
   <div class="title" style="display:flex; justify-content:space-between; font-size:15px; font-weight:600; color:#2c7c74; margin-bottom:12px;">
-    📋 剪贴板极速同步 <span style="font-size:11px; font-weight:normal; color:#94a3b8;">手机平板互传</span>
+    📋 剪贴板极速同步 <span style="font-size:11px; font-weight:normal; color:#94a3b8;">跨设备互传</span>
   </div>
   
   <div class="btn-row">
@@ -1007,53 +1007,104 @@ function toggleAllCats(selectAll) {
   renderTodos();
 }
 
+// 【新增】处理分类筛选的树形级联逻辑
+function updateTodoCatFilter(targetCat, isChecked) {
+    let filters = [...db.settings.todoCatFilters];
+    const allCats = new Set();
+    db.events.forEach(ev => {
+        if(!ev.cat) ev.cat = "未分类";
+        const parts = ev.cat.split("/").filter(Boolean);
+        let path = "";
+        parts.forEach(p => {
+            path = path ? path + "/" + p : p;
+            allCats.add(path);
+        });
+    });
+    const catArray = Array.from(allCats);
+
+    if (isChecked) {
+        // 勾选：把目标及其子级加入
+        catArray.forEach(c => {
+            if (c === targetCat || c.startsWith(targetCat + "/")) {
+                if (!filters.includes(c)) filters.push(c);
+            }
+        });
+        // 向上检查，如果父级的子级全选，合并到父级
+        let parent = targetCat;
+        while (parent.includes("/")) {
+            parent = parent.substring(0, parent.lastIndexOf("/"));
+            const children = catArray.filter(c => c.startsWith(parent + "/") && !c.substring(parent.length + 1).includes("/"));
+            const allChildrenSelected = children.length > 0 && children.every(c => filters.includes(c));
+            if (allChildrenSelected) {
+                filters = filters.filter(c => !children.includes(c));
+                if (!filters.includes(parent)) filters.push(parent);
+            } else {
+                break;
+            }
+        }
+    } else {
+        // 取消勾选：找出祖先并拆解
+        let ancestorToExpand = filters.find(f => targetCat.startsWith(f + "/"));
+        if (ancestorToExpand) {
+            filters = filters.filter(f => f !== ancestorToExpand);
+            const children = catArray.filter(c => c.startsWith(ancestorToExpand + "/") && !c.substring(ancestorToExpand.length + 1).includes("/"));
+            children.forEach(child => {
+                if (child !== targetCat && !targetCat.startsWith(child + "/")) {
+                    if (!filters.includes(child)) filters.push(child);
+                }
+            });
+        }
+        
+        // 移除目标和子级
+        filters = filters.filter(c => c !== targetCat && !c.startsWith(targetCat + "/"));
+        
+        // 向上把父级踢掉
+        let parent = targetCat;
+        while (parent.includes("/")) {
+            parent = parent.substring(0, parent.lastIndexOf("/"));
+            filters = filters.filter(c => c !== parent);
+        }
+    }
+    db.settings.todoCatFilters = filters;
+}
+
 function renderCatFilterDropdown() {
   const dropdown = document.getElementById("catFilterList");
   dropdown.innerHTML = "";
   
-  // 提取所有被未归档事项引用的分类
-  const usedCats = new Set();
+  const allPaths = new Set();
   db.events.forEach(ev => {
-    if (ev.isArchived) return;
     if(!ev.cat) ev.cat = "未分类";
-    usedCats.add(ev.cat);
+    const parts = ev.cat.split("/").filter(Boolean);
+    let path = "";
+    parts.forEach(p => {
+      path = path ? path + "/" + p : p;
+      allPaths.add(path);
+    });
   });
-  // 从 db.categories 中过滤出有事项的分类
-  const cats = db.categories.filter(c => {
-      if (!usedCats.has(c)) {
-          // 检查是否有子分类在用
-          const hasSub = Array.from(usedCats).some(u => u.startsWith(c + "/"));
-          if (!hasSub) return false;
-      }
-      return true;
-  });
-
-  // 旧版行为：按中文拼音字母排序，脱离分类树拖拽顺序
-  cats.sort((a,b)=>{
-      return a.localeCompare(b, 'zh-CN');
-  });
+  
+  // 纯字母排序
+  const cats = Array.from(allPaths).sort();
 
   cats.forEach(c => {
     const div = document.createElement("label");
     div.className = "cat-filter-item";
-    const isChecked = db.settings.todoCatFilters.includes(c);
-    const depth = c.split('/').length - 1;
-    // 增加一点左侧缩进表现层级
-    div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; padding-left:${depth * 8}px; word-break:break-all;">${c}</span>`;
+    
+    // 动态判断选中状态：只要它自己或其任一祖先在 filter 里，就算选中
+    const isChecked = db.settings.todoCatFilters.some(f => c === f || c.startsWith(f + "/"));
+    
+    div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; word-break:break-all;">${c}</span>`;
+    
     div.querySelector('input').onchange = (e) => {
-      if (e.target.checked) {
-        if (!db.settings.todoCatFilters.includes(c)) db.settings.todoCatFilters.push(c);
-      } else {
-        db.settings.todoCatFilters = db.settings.todoCatFilters.filter(x => x !== c);
-      }
+      updateTodoCatFilter(c, e.target.checked);
       saveDB();
+      renderCatFilterDropdown(); // 重新渲染刷新树形勾选状态
       updateCatFilterBtnText();
       renderTodos();
     };
     dropdown.appendChild(div);
   });
 }
-
 
 function getFilteredTasksForDate(targetViewDateStr) {
   const realNow = new Date();
@@ -1102,7 +1153,7 @@ function getFilteredTasksForDate(targetViewDateStr) {
 
     const isDone = isEventDoneForDate(ev, targetViewDateStr);
 
-    // 未拉取的长期/常驻事项：只允许“今天”且“已完成”状态下出现在待办中
+    // 未拉取的长期/常驻事项，最终审判：只允许“今天”且“已完成”状态下出现在待办中
     if ((ev.freq === "长期" || ev.freq === "常驻") && !isPulled) {
         const isToday = (targetViewDateStr === realNowStr);
         if (!isToday || !isDone) return; 
