@@ -1018,8 +1018,7 @@ function renderCatFilterDropdown() {
     if(!ev.cat) ev.cat = "未分类";
     usedCats.add(ev.cat);
   });
-
-  // 从 db.categories 中过滤出有事项的分类，并保持 db.categories 的现有顺序（即分类树顺序）
+  // 从 db.categories 中过滤出有事项的分类
   const cats = db.categories.filter(c => {
       if (!usedCats.has(c)) {
           // 检查是否有子分类在用
@@ -1027,6 +1026,11 @@ function renderCatFilterDropdown() {
           if (!hasSub) return false;
       }
       return true;
+  });
+
+  // 旧版行为：按中文拼音字母排序，脱离分类树拖拽顺序
+  cats.sort((a,b)=>{
+      return a.localeCompare(b, 'zh-CN');
   });
 
   cats.forEach(c => {
@@ -1049,6 +1053,7 @@ function renderCatFilterDropdown() {
     dropdown.appendChild(div);
   });
 }
+
 
 function getFilteredTasksForDate(targetViewDateStr) {
   const realNow = new Date();
