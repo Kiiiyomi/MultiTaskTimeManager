@@ -99,8 +99,11 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .quadrant-body { display: block; }
 .quadrant-body.hidden { display: none; }
 
-.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#00000060;z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#00000060;z-index:110;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
 .modal-overlay.show{display:flex}
+#singleEventModal { z-index: 90; }
+#editModal { z-index: 120; } /* 确保编辑框在最上层 */
+
 .modal{background:#fff;border-radius:16px;padding:20px;width:92%;max-width:450px;max-height:90vh;overflow-y:auto;}
 .form-group{margin-bottom:12px;display:flex;flex-direction:column;gap:6px;}
 .form-group label{font-size:13px;color:#64748b;font-weight:500}
@@ -125,12 +128,12 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
   justify-content: center;
 }
 .ev-block.plan { 
-  background: transparent !important; 
-  border: 1px dashed #94a3b8 !important; 
-  color: #64748b !important; 
+  background: #f8fafc !important; 
+  border: 1px dashed #cbd5e1 !important; 
+  color: #94a3b8 !important; 
   box-shadow: none; 
   z-index: 1; 
-  border-left: 4px solid #cbd5e1 !important; 
+  border-left: 3px solid #cbd5e1 !important; 
 }
 .ev-block:hover {
   z-index: 50 !important; 
@@ -192,6 +195,23 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .done-undo-btn { background: #aaa; color: white; }
 .skipped-undo-btn { background: #aaa; color: white; }
 
+.schedule-btn { color: #3b82f6; background: #eff6ff; }
+.schedule-btn.active { background: #3b82f6; color: white; }
+
+/* 四象限透视面板 */
+.quad-panel-item { padding: 10px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; background: #f8fafc; display: flex; align-items: center; gap: 10px; transition: 0.2s;}
+.quad-panel-item:hover { background: #f1f5f9; }
+.quad-bar-bg { flex: 1; height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; }
+.quad-bar-fill { height: 100%; border-radius: 5px; }
+.quad-detail-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-top: 10px; display: none; }
+.quad-detail-box.show { display: block; }
+
+/* 时间编辑锚点 */
+.time-input-group { display: flex; align-items: center; gap: 6px; }
+.time-input-group input { flex: 1; }
+.pin-btn { cursor: pointer; font-size: 16px; padding: 4px; color: #cbd5e1; transition: 0.2s; }
+.pin-btn.active { color: #f59e0b; transform: rotate(45deg); }
+
 @media(min-width: 768px){
   .quadrant-grid { display: grid; grid-template-columns: 1fr 1fr; }
   .chart-row { flex-direction: row; flex-wrap: wrap; }
@@ -243,10 +263,18 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
   <button id="tab-tomorrow" onclick="setTodoDay(1)">明天</button>
 </div>
 <div class="flex-row" style="justify-content:space-between; margin-bottom:10px;">
-  <select id="todoViewSel" onchange="onTodoViewChange(this.value)" style="padding:6px 10px; font-size:13px; width:auto;">
-    <option value="all">全部</option>
-    <option value="unfinished">未完成</option>
-  </select>
+  <div class="flex-row">
+    <select id="todoViewSel" onchange="onTodoViewChange(this.value)" style="padding:6px 10px; font-size:13px; width:auto;">
+      <option value="all">全部</option>
+      <option value="unfinished">未完成</option>
+    </select>
+    
+    <label style="display:flex; align-items:center; gap:6px; font-size:13px; background:#fff; padding:6px 10px; border-radius:8px; border:1px solid #e2e8f0; cursor:pointer;">
+      <input type="checkbox" id="scheduleModeToggle" onchange="toggleScheduleMode(this.checked)" style="width:16px; height:16px; margin:0;">
+      📅 排期模式
+    </label>
+  </div>
+  
   <div class="custom-select-wrap" id="catFilterWrap">
     <div class="custom-select-btn" id="catFilterBtn" onclick="toggleCatDropdown(event)">
       <span id="catFilterText">全部分类</span>
@@ -269,11 +297,20 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
     </div>
   </div>
   <div class="flex-row" style="background:#f8fafc; padding:8px; border-radius:8px; gap:10px;">
-    <span style="font-size:13px; font-weight:bold; color:#409c94;">时间预算</span>
-    <span style="font-size:13px">睡眠目标(时): <input type="number" id="sleepNeed" value="7.5" step="0.5" style="width:55px; padding:4px; border-radius:4px; margin-left:4px;" onchange="updateSleepNeed(this.value)"></span>
+    <span style="font-size:13px; font-weight:bold; color:#409c94;">睡眠目标</span>
+    <span style="font-size:13px">(时): <input type="number" id="sleepNeed" value="7.5" step="0.5" style="width:55px; padding:4px; border-radius:4px; margin-left:4px;" onchange="updateSleepNeed(this.value)"></span>
   </div>
   <div id="loadTip" style="margin-top:10px; font-size:13px; line-height:1.5;"></div>
 </div>
+
+<!-- 排期批量操作栏 -->
+<div id="scheduleBatchBar" class="batch-bar" style="display:none; background:#eff6ff; border:1px solid #bfdbfe;">
+  <button class="secondary" onclick="selectAllCurrentView()" style="background:#fff; color:#1d4ed8; border:1px solid #bfdbfe; flex:1; font-size:12px; padding:6px;">全选当前视图</button>
+  <button class="secondary" onclick="clearScheduleSelection()" style="background:#fff; color:#475569; border:1px solid #cbd5e1; flex:1; font-size:12px; padding:6px;">清空选择</button>
+  <button class="secondary" onclick="clearTodayPlans()" style="background:#fff; color:#ef4444; border:1px solid #fecaca; flex:1; font-size:12px; padding:6px;">❌ 取消全部排期</button>
+  <button onclick="applySchedule()" style="background:#3b82f6; flex:1; font-size:12px; padding:6px; font-weight:bold;">🚀 应用排期</button>
+</div>
+
 <div class="quadrant-grid">
 <div class="quadrant q1">
   <div class="quadrant-header" onclick="toggleQuad(1)">
@@ -354,7 +391,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="chart-row">
   <div class="chart-col">
     <div class="flex-row" style="justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <h3 style="margin:0;">耗时排行</h3>
+      <h3 style="margin:0;" id="rankTitle">耗时排行 (去重合并)</h3>
       <select id="statGroupBySel" onchange="renderStats()" style="padding:4px 8px; font-size:12px; border-radius:6px; width:auto;">
         <option value="cat">按分类</option>
         <option value="event">按事项</option>
@@ -363,7 +400,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
     <div id="catRankList" class="rank-list"></div>
   </div>
   <div class="chart-col" style="max-width:320px; min-width:250px;">
-    <h3>占比</h3>
+    <h3 id="pieTitle">分类占比 (去重合并)</h3>
     <div class="pie-wrap"><canvas id="pieChart"></canvas></div>
   </div>
 </div>
@@ -374,9 +411,15 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
     <div id="freqRankList" class="rank-list"></div>
   </div>
   <div class="chart-col">
-    <h3>最常并发组合 (累计并行时长与节省)</h3>
+    <h3>并发洞察 (实际重叠 vs 预估串行)</h3>
     <div id="concurrencyList" class="rank-list"></div>
   </div>
+</div>
+
+<div class="card">
+  <h3>四象限精力透视面板</h3>
+  <div style="display:flex; flex-direction:column; gap:6px;" id="quadPanel"></div>
+  <div id="quadDetailBox" class="quad-detail-box"></div>
 </div>
 
 <div id="dailyChartsWrap">
@@ -394,7 +437,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <!-- 1. 高频：剪贴板极速同步 -->
 <div class="card">
   <div class="title" style="display:flex; justify-content:space-between; font-size:15px; font-weight:600; color:#2c7c74; margin-bottom:12px;">
-    📋 剪贴板极速同步 <span style="font-size:11px; font-weight:normal; color:#94a3b8;">跨设备互传</span>
+    📋 剪贴板极速同步 <span style="font-size:11px; font-weight:normal; color:#94a3b8;">手机平板互传</span>
   </div>
   
   <div class="btn-row">
@@ -481,7 +524,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <button class="secondary" onclick="calcDeadline()" style="padding:6px 12px; font-size:13px;">换算</button>
 </div>
 </div>
-<div class="form-group"><label>计划行动时间</label><input type="datetime-local" id="editActionDateTime"></div>
+<div class="form-group"><label>计划行动时间 (留空不排期)</label><input type="datetime-local" id="editActionDateTime"></div>
 <div class="form-group"><label>预估耗时(分)</label><input type="number" id="editEst"></div>
 <div class="form-group"><label>备注说明</label><textarea id="editNote" style="min-height:60px;"></textarea></div>
 <div class="form-group" style="background:#f1f5f9; padding:10px; border-radius:8px; flex-direction:row; align-items:center; gap:10px;">
@@ -505,9 +548,30 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="modal">
 <h3>编辑记录</h3>
 <div class="form-group"><label>关联事项 (支持分类)</label><input id="axisEditEvName" list="allEventsList"><datalist id="allEventsList"></datalist></div>
-<div class="form-group"><label>开始时间</label><input type="datetime-local" id="axisEditTimeStart" oninput="calcAxisEditTime('start')" onchange="calcAxisEditTime('start')"></div>
-<div class="form-group"><label>结束时间</label><input type="datetime-local" id="axisEditTimeEnd" oninput="calcAxisEditTime('end')" onchange="calcAxisEditTime('end')"></div>
-<div class="form-group"><label>耗时（分钟）</label><input type="number" id="axisEditDur" min="1" oninput="calcAxisEditTime('dur')" onchange="calcAxisEditTime('dur')"></div>
+
+<div class="form-group">
+  <label>开始时间</label>
+  <div class="time-input-group">
+    <input type="datetime-local" id="axisEditTimeStart" oninput="calcAxisEditTime('start')" onchange="calcAxisEditTime('start')">
+    <span class="pin-btn" id="axisEditPinStart" onclick="togglePin('axisEdit', 'start')" title="锁定开始时间">📌</span>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>结束时间</label>
+  <div class="time-input-group">
+    <input type="datetime-local" id="axisEditTimeEnd" oninput="calcAxisEditTime('end')" onchange="calcAxisEditTime('end')">
+    <span class="pin-btn" id="axisEditPinEnd" onclick="togglePin('axisEdit', 'end')" title="锁定结束时间">📌</span>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>耗时（分钟）</label>
+  <div class="time-input-group">
+    <input type="number" id="axisEditDur" min="1" oninput="calcAxisEditTime('dur')" onchange="calcAxisEditTime('dur')">
+  </div>
+</div>
+
 <div class="flex-row" style="justify-content:space-between;margin-top:15px">
 <button class="danger" onclick="deleteAxisRecord()">🗑️ 删除记录</button>
 <div class="flex-row">
@@ -523,9 +587,30 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="modal">
 <h3>补录时间轴记录</h3>
 <div class="form-group"><label>事项名称 (支持分类)</label><input id="addAxisEvName" list="allEventsListAdd"><datalist id="allEventsListAdd"></datalist></div>
-<div class="form-group"><label>开始时间</label><input type="datetime-local" id="addAxisTimeStart" oninput="calcAxisTime('start')" onchange="calcAxisTime('start')"></div>
-<div class="form-group"><label>结束时间</label><input type="datetime-local" id="addAxisTimeEnd" oninput="calcAxisTime('end')" onchange="calcAxisTime('end')"></div>
-<div class="form-group"><label>耗时（分钟）</label><input type="number" id="addAxisDur" min="1" oninput="calcAxisTime('dur')" onchange="calcAxisTime('dur')"></div>
+
+<div class="form-group">
+  <label>开始时间</label>
+  <div class="time-input-group">
+    <input type="datetime-local" id="addAxisTimeStart" oninput="calcAxisTime('start')" onchange="calcAxisTime('start')">
+    <span class="pin-btn" id="addAxisPinStart" onclick="togglePin('addAxis', 'start')" title="锁定开始时间">📌</span>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>结束时间</label>
+  <div class="time-input-group">
+    <input type="datetime-local" id="addAxisTimeEnd" oninput="calcAxisTime('end')" onchange="calcAxisTime('end')">
+    <span class="pin-btn" id="addAxisPinEnd" onclick="togglePin('addAxis', 'end')" title="锁定结束时间">📌</span>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>耗时（分钟）</label>
+  <div class="time-input-group">
+    <input type="number" id="addAxisDur" min="1" oninput="calcAxisTime('dur')" onchange="calcAxisTime('dur')">
+  </div>
+</div>
+
 <div class="flex-row" style="justify-content:flex-end;margin-top:15px">
 <button class="secondary" onclick="closeAxisAddModal()">取消</button>
 <button onclick="saveAxisAdd()">保存</button>
@@ -569,7 +654,13 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 
 <div class="modal-overlay" id="archiveModal">
 <div class="modal">
-<h3>🗄️ 归档</h3>
+<div class="flex-row" style="justify-content:space-between; align-items:center; margin-bottom:12px;">
+  <h3 style="margin:0;">🗄️ 归档</h3>
+  <div class="flex-row">
+    <button class="secondary" onclick="toggleArchiveAll()" style="padding:4px 8px; font-size:12px;" id="archiveSelectAllBtn">全选</button>
+    <button class="danger" onclick="batchDeleteArchive()" style="padding:4px 8px; font-size:12px;">删除选中</button>
+  </div>
+</div>
 <div class="form-group"><input type="text" id="archiveSearch" placeholder="🔍 搜索..." oninput="renderArchiveList()"></div>
 <div id="archiveList" style="max-height:50vh; overflow-y:auto;"></div>
 <div class="flex-row" style="justify-content:flex-end; margin-top:15px;"><button class="secondary" onclick="closeArchiveModal()">关闭</button></div>
@@ -615,7 +706,11 @@ let db = {
   categories: ["工作/项目", "学习/阅读", "生活/日常"], 
   events: [], records: [], timers: {}, pausedTimers: [],
   doneEvents: {}, skippedEvents: {}, pulledEvents: [],
-  settings: { sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false} }, 
+  settings: { 
+      sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', 
+      pinnedCombos: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false},
+      scheduleMode: false, scheduledIds: [] 
+  }, 
   batchChecked: [], selectedCats: [], collapsedCats: []
 };
 let currentEditEventId = null;
@@ -627,12 +722,18 @@ let currentTodoOffset = 0;
 let pieChart;
 let currentAxisScale = 3;
 let currentPinnedMode = 'pinned';
+let archiveSelected = new Set();
 
 let currentSingleEventGrain = 'day';
 let currentSingleEventAnchor = null;
 
 let dragSrcEl = null;
 let dragData = null;
+
+let pinState = {
+    axisEdit: { start: false, end: false },
+    addAxis: { start: false, end: false }
+};
 
 function getWeekKey(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -746,6 +847,13 @@ function processDailyTransition() {
   const todayS = todayStr();
   if (db.settings.lastActiveDate === todayS) return;
   cleanupOldData();
+  
+  db.events.forEach(ev => {
+      if (ev.actionDateTime && ev.actionDateTime.startsWith(db.settings.lastActiveDate || '')) {
+          ev.actionDateTime = "";
+      }
+  });
+
   db.settings.lastActiveDate = todayS;
   saveDB();
 }
@@ -811,11 +919,14 @@ function isEventSkippedForDate(evId, targetViewDateStr) {
 function loadDB(){
   const raw = localStorage.getItem(DB_KEY);
   if(raw){ try{ db = JSON.parse(raw); }catch(e){} }
-  if(!db.settings) db.settings = { sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false} };
+  if(!db.settings) db.settings = { sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false, 2:false, 3:false, 4:false, 0:false}, scheduleMode: false, scheduledIds: [] };
   if(!db.settings.quadCollapsed) db.settings.quadCollapsed = {1:false, 2:false, 3:false, 4:false, 0:false};
   if(!db.settings.todoCatFilters) db.settings.todoCatFilters = [];
   if(!db.settings.todoViewMode) db.settings.todoViewMode = 'all';
   if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
+  if(typeof db.settings.scheduleMode === 'undefined') db.settings.scheduleMode = false;
+  if(!Array.isArray(db.settings.scheduledIds)) db.settings.scheduledIds = [];
+  
   if(!db.doneEvents) db.doneEvents = {};
   if(!db.skippedEvents) db.skippedEvents = {};
   if(!db.categories) db.categories = [];
@@ -912,36 +1023,61 @@ function getMergedDuration(records) {
 
 function recalcLoad(){
   const todayDateStr = todayStr();
+  const now = new Date();
   
+  // 实际已用并发跨度
   const dayRecs = db.records.filter(r => {
     const st = new Date(r.start);
     return dateToStr(st) === todayDateStr;
   });
-  
   const usedMs = getMergedDuration(dayRecs);
   const usedMin = usedMs / 60000;
   
-  const tasks = getFilteredTasksForDate(todayDateStr);
-  const uncompletedMin = tasks
-    .filter(t => !t.isDone && !t.isSkipped)
-    .reduce((s, t) => s + (t.ev.est || 30), 0);
+  // 今日还未完成的计划时长
+  const plannedTasks = db.events.filter(ev => 
+      ev.actionDateTime && 
+      ev.actionDateTime.startsWith(todayDateStr) && 
+      !isEventDoneForDate(ev, todayDateStr) &&
+      !ev.isArchived
+  );
+  const plannedMin = plannedTasks.reduce((s, ev) => s + (ev.est || 30), 0);
   
-  const sleepMin = (db.settings.sleepNeed || 7.5) * 60;
-  const totalMin = 1440;
-  const remainMin = totalMin - sleepMin - usedMin - uncompletedMin;
+  // 计算今日实际睡眠时长（按包含“睡”的分类或名称判断）
+  let actualSleepMin = 0;
+  dayRecs.forEach(r => {
+      const isSleep = (r.name && r.name.includes("睡")) || (r.cat && r.cat.includes("睡"));
+      if (isSleep) actualSleepMin += r.durationMs / 60000;
+  });
+
+  const targetSleepMin = (db.settings.sleepNeed || 7.5) * 60;
+  let virtualSleepMin = Math.max(0, targetSleepMin - actualSleepMin);
   
-  const hUsed = (usedMin/60).toFixed(1);
-  const hUn = (uncompletedMin/60).toFixed(1);
+  // 剩余自然时间 (到今晚24点)
+  const todayEnd = new Date(todayDateStr + 'T23:59:59').getTime();
+  let remainNaturalMin = (todayEnd - now.getTime()) / 60000;
+  if (remainNaturalMin < 0) remainNaturalMin = 0; 
+  
+  const remainMin = remainNaturalMin - plannedMin - virtualSleepMin;
+  
   const hRemain = (remainMin/60).toFixed(1);
-  const hSleep = (sleepMin/60).toFixed(1);
+  const hPlan = (plannedMin/60).toFixed(1);
+  const hSleepTarget = (targetSleepMin/60).toFixed(1);
+  const hSleepActual = (actualSleepMin/60).toFixed(1);
+  const hSleepVirtual = (virtualSleepMin/60).toFixed(1);
 
   const tip = document.getElementById("loadTip");
-  let html = `<div>今日预算: <b>24h</b> | 睡眠: ${hSleep}h | 并发已用: <span style="color:#3b82f6">${hUsed}h</span> | 待办预估: <span style="color:#f59e0b">${hUn}h</span></div>`;
+  let html = `<div>目标睡眠: ${hSleepTarget}h | 已记录睡眠: <span style="color:#8b5cf6">${hSleepActual}h</span> | 待办预估: <span style="color:#f59e0b">${hPlan}h</span></div>`;
   
-  if(remainMin < 0) {
-    html += `<div style="color:#b91c1c; font-weight:bold; margin-top:4px;">⚠️ 超载！即使并行，可用时间也不够了，还差 ${Math.abs(hRemain)}h。</div>`;
+  if (virtualSleepMin > 0) {
+      html += `<div style="font-size:12px; color:#94a3b8; margin-top:2px;">* 系统已为你预留剩余睡眠: ${hSleepVirtual}h</div>`;
   } else {
-    html += `<div style="color:#15803d; font-weight:bold; margin-top:4px;">✅ 余量 ${hRemain}h。合理安排并发，今天能做完。</div>`;
+      html += `<div style="font-size:12px; color:#15803d; margin-top:2px;">* 实际睡眠已达标，不额外占用今日剩余时间。</div>`;
+  }
+
+  if(remainMin < 0) {
+    html += `<div style="color:#b91c1c; font-weight:bold; margin-top:6px;">⚠️ 超载！按当前计划，你还差 ${Math.abs(hRemain)}h 无法完成，请考虑删减排期。</div>`;
+  } else {
+    html += `<div style="color:#15803d; font-weight:bold; margin-top:6px;">✅ 剩余可用容量 ${hRemain}h。</div>`;
   }
   tip.innerHTML = html;
 }
@@ -963,6 +1099,43 @@ function onTodoViewChange(val) {
   db.settings.todoViewMode = val;
   saveDB();
   renderTodos();
+}
+
+function toggleScheduleMode(isChecked) {
+    db.settings.scheduleMode = isChecked;
+    saveDB();
+    document.getElementById("scheduleBatchBar").style.display = isChecked ? "flex" : "none";
+    renderTodos();
+}
+
+function selectAllCurrentView() {
+    document.querySelectorAll('.task-item:not(.done):not(.skipped)').forEach(div => {
+        const btn = div.querySelector('.btn-schedule');
+        if (btn) {
+            const evId = btn.dataset.id;
+            if (evId && !db.settings.scheduledIds.includes(evId)) {
+                db.settings.scheduledIds.push(evId);
+            }
+        }
+    });
+    saveDB(); renderTodos();
+}
+
+function clearScheduleSelection() {
+    db.settings.scheduledIds = [];
+    saveDB(); renderTodos();
+}
+
+function clearTodayPlans() {
+    if (!confirm("确定要取消今日所有已排期的时间吗？（不会删除待办，仅清空时间轴上的灰色虚线）")) return;
+    const viewDateStr = getTodoDateStr();
+    db.events.forEach(ev => {
+        if (ev.actionDateTime && ev.actionDateTime.startsWith(viewDateStr)) {
+            ev.actionDateTime = "";
+        }
+    });
+    saveDB(); renderTodos(); renderAxis(); recalcLoad();
+    showToast("已取消今日所有排期");
 }
 
 function updateCatFilterBtnText() {
@@ -1007,47 +1180,32 @@ function toggleAllCats(selectAll) {
   renderTodos();
 }
 
-// 【新增】处理分类筛选的树形级联逻辑
 function updateTodoCatFilter(targetCat, isChecked) {
     let filters = [...db.settings.todoCatFilters];
-    const allCats = new Set();
-    db.events.forEach(ev => {
-        if(!ev.cat) ev.cat = "未分类";
-        const parts = ev.cat.split("/").filter(Boolean);
-        let path = "";
-        parts.forEach(p => {
-            path = path ? path + "/" + p : p;
-            allCats.add(path);
-        });
-    });
-    const catArray = Array.from(allCats);
-
+    
     if (isChecked) {
-        // 勾选：把目标及其子级加入
-        catArray.forEach(c => {
-            if (c === targetCat || c.startsWith(targetCat + "/")) {
-                if (!filters.includes(c)) filters.push(c);
-            }
-        });
-        // 向上检查，如果父级的子级全选，合并到父级
-        let parent = targetCat;
-        while (parent.includes("/")) {
-            parent = parent.substring(0, parent.lastIndexOf("/"));
-            const children = catArray.filter(c => c.startsWith(parent + "/") && !c.substring(parent.length + 1).includes("/"));
-            const allChildrenSelected = children.length > 0 && children.every(c => filters.includes(c));
-            if (allChildrenSelected) {
-                filters = filters.filter(c => !children.includes(c));
-                if (!filters.includes(parent)) filters.push(parent);
-            } else {
-                break;
-            }
-        }
+        if (!filters.includes(targetCat)) filters.push(targetCat);
     } else {
-        // 取消勾选：找出祖先并拆解
-        let ancestorToExpand = filters.find(f => targetCat.startsWith(f + "/"));
-        if (ancestorToExpand) {
-            filters = filters.filter(f => f !== ancestorToExpand);
-            const children = catArray.filter(c => c.startsWith(ancestorToExpand + "/") && !c.substring(ancestorToExpand.length + 1).includes("/"));
+        // 如果取消某个分类，检查是否有它的祖先在过滤列表里
+        let ancestor = filters.find(f => targetCat.startsWith(f + "/"));
+        if (ancestor) {
+            // 将祖先拆解，移除祖先
+            filters = filters.filter(f => f !== ancestor);
+            // 保留祖先自身的直属事项
+            if (!filters.includes(ancestor)) filters.push(ancestor);
+            
+            // 把祖先的其他子级加进去，防止祖先在匹配时直接覆盖所有子级
+            const allPathsSet = new Set();
+            db.events.forEach(ev => {
+                if(!ev.cat) ev.cat = "未分类";
+                const parts = ev.cat.split("/").filter(Boolean);
+                let path = "";
+                parts.forEach(p => {
+                    path = path ? path + "/" + p : p;
+                    allPathsSet.add(path);
+                });
+            });
+            const children = Array.from(allPathsSet).filter(c => c.startsWith(ancestor + "/") && !c.substring(ancestor.length + 1).includes("/"));
             children.forEach(child => {
                 if (child !== targetCat && !targetCat.startsWith(child + "/")) {
                     if (!filters.includes(child)) filters.push(child);
@@ -1055,15 +1213,8 @@ function updateTodoCatFilter(targetCat, isChecked) {
             });
         }
         
-        // 移除目标和子级
-        filters = filters.filter(c => c !== targetCat && !c.startsWith(targetCat + "/"));
-        
-        // 向上把父级踢掉
-        let parent = targetCat;
-        while (parent.includes("/")) {
-            parent = parent.substring(0, parent.lastIndexOf("/"));
-            filters = filters.filter(c => c !== parent);
-        }
+        // 移除目标和它的子级
+        filters = filters.filter(f => f !== targetCat && !f.startsWith(targetCat + "/"));
     }
     db.settings.todoCatFilters = filters;
 }
@@ -1083,14 +1234,12 @@ function renderCatFilterDropdown() {
     });
   });
   
-  // 纯字母排序
   const cats = Array.from(allPaths).sort();
 
   cats.forEach(c => {
     const div = document.createElement("label");
     div.className = "cat-filter-item";
     
-    // 动态判断选中状态：只要它自己或其任一祖先在 filter 里，就算选中
     const isChecked = db.settings.todoCatFilters.some(f => c === f || c.startsWith(f + "/"));
     
     div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; word-break:break-all;">${c}</span>`;
@@ -1098,7 +1247,7 @@ function renderCatFilterDropdown() {
     div.querySelector('input').onchange = (e) => {
       updateTodoCatFilter(c, e.target.checked);
       saveDB();
-      renderCatFilterDropdown(); // 重新渲染刷新树形勾选状态
+      renderCatFilterDropdown();
       updateCatFilterBtnText();
       renderTodos();
     };
@@ -1147,13 +1296,21 @@ function getFilteredTasksForDate(targetViewDateStr) {
 
     if (filterCats.length > 0) {
       const evCat = ev.cat || "未分类";
-      const matched = filterCats.some(f => evCat === f || evCat.startsWith(f + "/"));
+      const matched = filterCats.some(f => {
+          if (evCat === f) return true;
+          if (evCat.startsWith(f + "/")) {
+              // 如果 filters 里有比 f 更深的子孙，说明 f 被拆解了，那么 f 不匹配更深层的子级
+              const isSplit = filterCats.some(other => other.startsWith(f + "/"));
+              if (isSplit) return false;
+              return true;
+          }
+          return false;
+      });
       if (!matched) return;
     }
 
     const isDone = isEventDoneForDate(ev, targetViewDateStr);
 
-    // 未拉取的长期/常驻事项，最终审判：只允许“今天”且“已完成”状态下出现在待办中
     if ((ev.freq === "长期" || ev.freq === "常驻") && !isPulled) {
         const isToday = (targetViewDateStr === realNowStr);
         if (!isToday || !isDone) return; 
@@ -1184,6 +1341,107 @@ function toggleQuad(q) {
     }
 }
 
+function applySchedule() {
+    const viewDateStr = getTodoDateStr();
+    const isToday = (viewDateStr === todayStr());
+    
+    // 清理记忆中已完成的项
+    db.settings.scheduledIds = db.settings.scheduledIds.filter(id => {
+        const ev = db.events.find(e => e.id === id);
+        if (!ev) return false;
+        if (isEventDoneForDate(ev, viewDateStr)) return false;
+        return true;
+    });
+
+    if (!db.settings.scheduledIds.length) return showToast("请先勾选需要排期的事项");
+
+    const selectedTasks = [];
+    db.settings.scheduledIds.forEach(id => {
+        const ev = db.events.find(e => e.id === id);
+        if (!ev) return;
+        const isAnchor = ev.actionDateTime && ev.actionDateTime.startsWith(viewDateStr);
+        selectedTasks.push({ ev, isAnchor });
+    });
+
+    const anchors = selectedTasks.filter(t => t.isAnchor).map(t => t.ev);
+    const toSchedule = selectedTasks.filter(t => !t.isAnchor).map(t => t.ev);
+
+    if (!toSchedule.length) return showToast("选中的事项均已有排期时间");
+
+    toSchedule.sort((a, b) => {
+        const qa = a.quad ?? 2;
+        const qb = b.quad ?? 2;
+        if (qa === 0) return 1;
+        if (qb === 0) return -1;
+        if (qa !== qb) return qa - qb;
+        
+        // 象限相同，尽量按大分类聚类
+        const catA = a.cat.split("/")[0];
+        const catB = b.cat.split("/")[0];
+        if (catA !== catB) return catA.localeCompare(catB);
+        return a.cat.localeCompare(b.cat);
+    });
+
+    let occupiedIntervals = [];
+    db.records.forEach(r => {
+        if (dateToStr(new Date(r.start)) === viewDateStr) {
+            occupiedIntervals.push({ start: new Date(r.start).getTime(), end: new Date(r.end).getTime() });
+        }
+    });
+    anchors.forEach(a => {
+        const st = new Date(a.actionDateTime).getTime();
+        occupiedIntervals.push({ start: st, end: st + (a.est || 30) * 60000 });
+    });
+    occupiedIntervals.sort((a,b) => a.start - b.start);
+
+    let startTime = isToday ? Date.now() : new Date(viewDateStr + 'T00:00:00').getTime();
+    
+    function findSlot(duration, isMustFinish) {
+        let cursor = startTime;
+        while (true) {
+            if (!isMustFinish) {
+                let d = new Date(cursor);
+                if (d.getHours() >= 23 || d.getHours() < 7) {
+                    if (d.getHours() >= 23) d.setDate(d.getDate() + 1);
+                    d.setHours(7, 0, 0, 0);
+                    cursor = d.getTime();
+                    continue;
+                }
+                let sleepStart = new Date(cursor); sleepStart.setHours(23,0,0,0);
+                if (cursor < sleepStart.getTime() && cursor + duration > sleepStart.getTime()) {
+                    let sleepEnd = new Date(sleepStart); sleepEnd.setDate(sleepEnd.getDate() + 1); sleepEnd.setHours(7,0,0,0);
+                    cursor = sleepEnd.getTime();
+                    continue;
+                }
+            }
+            
+            let conflict = false;
+            for (let inv of occupiedIntervals) {
+                if (cursor < inv.end && (cursor + duration) > inv.start) {
+                    cursor = inv.end;
+                    conflict = true;
+                    break;
+                }
+            }
+            if (!conflict) break;
+        }
+        return cursor;
+    }
+
+    toSchedule.forEach(t => {
+        const duration = (t.est || 30) * 60000;
+        const isMustFinish = (t.freq === '每日' || t.freq === '限时' || t.dayBoundary);
+        const slot = findSlot(duration, isMustFinish);
+        t.actionDateTime = formatDatetimeLocal(new Date(slot));
+        
+        occupiedIntervals.push({ start: slot, end: slot + duration });
+        occupiedIntervals.sort((a,b) => a.start - b.start);
+    });
+
+    saveDB(); renderTodos(); renderAxis();
+    showToast(`✅ 排期应用完成`);
+}
+
 function renderTodos(){
   const qs = {1:"q1",2:"q2",3:"q3",4:"q4",0:"q0"};
   Object.values(qs).forEach(id => document.getElementById(id).innerHTML = "");
@@ -1209,9 +1467,10 @@ function renderTodos(){
   const viewSel = document.getElementById("todoViewSel");
   if (viewSel) viewSel.value = db.settings.todoViewMode || 'all';
   const viewMode = db.settings.todoViewMode || 'all';
-
   const viewDateStr = getTodoDateStr();
+
   const tasks = getFilteredTasksForDate(viewDateStr);
+  const isScheduleMode = db.settings.scheduleMode;
 
   tasks.forEach(({ev, isDone, isSkipped}) => {
     if (viewMode === 'unfinished' && (isDone || isSkipped)) return;
@@ -1250,19 +1509,32 @@ function renderTodos(){
     
     let leftBtnHtml = "";
     let rightBtnsHtml = "";
+    
+    let scheduleBtnHtml = "";
+    if (isScheduleMode && !isDone && !isSkipped) {
+        const isSelected = db.settings.scheduledIds.includes(ev.id);
+        const hasPlan = ev.actionDateTime && ev.actionDateTime.startsWith(viewDateStr);
+        
+        let btnClass = "schedule-btn";
+        let btnTitle = "加入排期选择";
+        if (hasPlan) { btnClass += " active"; btnTitle = "点击取消今日排期"; }
+        else if (isSelected) { btnClass += " active"; btnTitle = "取消排期选择"; }
+        
+        scheduleBtnHtml = `<button class="icon-btn ${btnClass} btn-schedule" data-id="${ev.id}" title="${btnTitle}">📅</button>`;
+    }
 
     if (isDone) {
-      rightBtnsHtml = `<button class="icon-btn done-undo-btn" title="取消完成">✓</button>`;
+      rightBtnsHtml = `<button class="icon-btn done-undo-btn btn-done" title="取消完成">✓</button>`;
     } else if (isSkipped) {
-      rightBtnsHtml = `<button class="icon-btn skipped-undo-btn" title="取消划掉">✕</button>`;
+      rightBtnsHtml = `<button class="icon-btn skipped-undo-btn btn-skip" title="取消划掉">✕</button>`;
     } else {
       leftBtnHtml = isRunning 
-        ? `<button class="icon-btn timer-btn" title="暂停">⏸</button>`
-        : `<button class="icon-btn secondary" title="开始计时">▶</button>`;
+        ? `<button class="icon-btn timer-btn btn-timer" title="暂停">⏸</button>`
+        : `<button class="icon-btn secondary btn-timer" title="开始计时">▶</button>`;
       
       rightBtnsHtml = `
-        <button class="icon-btn skip-btn" title="划掉">✕</button>
-        <button class="icon-btn done-btn" title="标记完成">✓</button>
+        <button class="icon-btn skip-btn btn-skip" title="划掉">✕</button>
+        <button class="icon-btn done-btn btn-done" title="标记完成">✓</button>
       `;
     }
 
@@ -1276,26 +1548,45 @@ function renderTodos(){
         <div class="meta-small">预估${ev.est}分钟 ${ev.note ? `<div style="color:#d32f2f; margin-top:2px;">备注: ${ev.note}</div>` : ''}</div>
       </div>
       <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+        ${scheduleBtnHtml}
         ${rightBtnsHtml}
       </div>
     `;
     
-    const buttons = div.querySelectorAll("button");
-    if (isDone) {
-      buttons[0].onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
-    } else if (isSkipped) {
-      buttons[0].onclick = () => toggleSkip(ev.id, viewDateStr);
-    } else {
-      buttons[0].onclick = () => {
-        if (isRunning) {
-          const tid = Object.values(db.timers).find(t => t.eventId === ev.id).tid;
-          pauseTimer(tid);
-        } else {
-          startTimerForEvent(ev.id);
-        }
-      };
-      buttons[1].onclick = () => toggleSkip(ev.id, viewDateStr);
-      buttons[2].onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
+    const timerBtn = div.querySelector(".btn-timer");
+    if (timerBtn) {
+        timerBtn.onclick = () => {
+            if (isRunning) {
+                const tid = Object.values(db.timers).find(t => t.eventId === ev.id).tid;
+                pauseTimer(tid);
+            } else {
+                startTimerForEvent(ev.id);
+            }
+        };
+    }
+    const skipBtn = div.querySelector(".btn-skip");
+    if (skipBtn) skipBtn.onclick = () => toggleSkip(ev.id, viewDateStr);
+    
+    const doneBtn = div.querySelector(".btn-done");
+    if (doneBtn) doneBtn.onclick = () => toggleDone(ev.id, viewDateStr, isExpired);
+    
+    const scheduleBtn = div.querySelector(".btn-schedule");
+    if (scheduleBtn) {
+        scheduleBtn.onclick = () => {
+            const hasPlan = ev.actionDateTime && ev.actionDateTime.startsWith(viewDateStr);
+            if (hasPlan) {
+                ev.actionDateTime = "";
+                saveDB(); renderTodos(); renderAxis(); recalcLoad();
+                showToast("已取消该事项的排期");
+            } else {
+                if (db.settings.scheduledIds.includes(ev.id)) {
+                    db.settings.scheduledIds = db.settings.scheduledIds.filter(id => id !== ev.id);
+                } else {
+                    db.settings.scheduledIds.push(ev.id);
+                }
+                saveDB(); renderTodos();
+            }
+        };
     }
     
     document.getElementById(qs[ev.quad ?? 2] || "q0").appendChild(div);
@@ -1458,6 +1749,9 @@ function toggleDone(evId, targetDateStr, isExpired = false){
         }
       }
     }
+    if (ev.actionDateTime && ev.actionDateTime.startsWith(targetDateStr)) {
+        ev.actionDateTime = "";
+    }
   }
   saveDB();
   renderTodos();
@@ -1539,9 +1833,7 @@ function startTimerForEvent(eventId){
   db.timers[tid] = { tid, eventId, startAt: Date.now() }; 
   db.pausedTimers = db.pausedTimers.filter(id => id !== eventId); 
   
-  // 删除了计时自动把长期/常驻拉入待办的逻辑，只能通过任务池拉取
-
-  saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree();
+  saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis(); recalcLoad();
 }
 
 function pauseTimer(tid){
@@ -1555,7 +1847,7 @@ function pauseTimer(tid){
   }
   if (!db.pausedTimers.includes(t.eventId)) db.pausedTimers.push(t.eventId);
   delete db.timers[tid]; 
-  saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis(); renderStats();
+  saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis(); renderStats(); recalcLoad();
 }
 
 function finishTimer(tid){
@@ -1574,6 +1866,10 @@ function finishTimer(tid){
         if (db.skippedEvents[ev.id].length === 0) delete db.skippedEvents[ev.id];
       }
       
+      if (ev.actionDateTime && ev.actionDateTime.startsWith(todayStr())) {
+          ev.actionDateTime = "";
+      }
+      
       saveDB(); renderTodos();
     }
   }
@@ -1587,7 +1883,7 @@ function stopTimer(tid, silent = false){
   if (durMs > 5000) db.records.push({ rid: "rec_"+Date.now(), eventId: t.eventId, cat, name, start: new Date(t.startAt).toISOString(), end: new Date().toISOString(), durationMs: durMs });
   delete db.timers[tid]; db.pausedTimers = db.pausedTimers.filter(id => id !== t.eventId);
   saveDB(); 
-  if (!silent) { renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis(); renderStats(); }
+  if (!silent) { renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis(); renderStats(); recalcLoad(); }
 }
 
 /* ================= 时间轴 ================= */
@@ -1644,13 +1940,14 @@ function renderAxis(){
   
   const dayStart = new Date(targetDateStr + 'T00:00:00').getTime();
   const dayEnd = dayStart + 24 * 3600 * 1000;
-  let viewEvents = [];
+  let actualEvents = [];
+  let plannedEvents = [];
   
   db.records.forEach(r => {
       const st = new Date(r.start).getTime();
       const et = new Date(r.end).getTime();
       if (st < dayEnd && et > dayStart) {
-          viewEvents.push({
+          actualEvents.push({
               type: 'actual',
               id: r.rid,
               title: r.name,
@@ -1662,10 +1959,10 @@ function renderAxis(){
   });
   
   db.events.forEach(ev => {
-      if(ev.actionDateTime && ev.actionDateTime.startsWith(targetDateStr)){
+      if(ev.actionDateTime && ev.actionDateTime.startsWith(targetDateStr) && !isEventDoneForDate(ev, targetDateStr)){
           const st = new Date(ev.actionDateTime).getTime();
           const et = st + (ev.est || 30) * 60000;
-          viewEvents.push({
+          plannedEvents.push({
               type: 'planned',
               id: ev.id,
               title: '计划: ' + ev.name,
@@ -1676,6 +1973,35 @@ function renderAxis(){
       }
   });
   
+  plannedEvents.sort((a, b) => a.startMs - b.startMs);
+  
+  const occupiedIntervals = actualEvents.map(e => [e.startMs, e.endMs]).sort((a,b)=>a[0]-b[0]);
+  
+  plannedEvents.forEach(plan => {
+      let cursor = Math.max(plan.startMs, dayStart); 
+      let duration = plan.endMs - plan.startMs;
+      let isOverlapping = true;
+      
+      while (isOverlapping) {
+          isOverlapping = false;
+          for (let i = 0; i < occupiedIntervals.length; i++) {
+              const [oStart, oEnd] = occupiedIntervals[i];
+              if (cursor < oEnd && (cursor + duration) > oStart) {
+                  cursor = oEnd; 
+                  isOverlapping = true;
+                  break;
+              }
+          }
+      }
+      
+      plan.startMs = cursor;
+      plan.endMs = cursor + duration;
+      
+      occupiedIntervals.push([plan.startMs, plan.endMs]);
+      occupiedIntervals.sort((a,b)=>a[0]-b[0]);
+  });
+  
+  let viewEvents = [...actualEvents, ...plannedEvents];
   viewEvents.sort((a, b) => a.startMs - b.startMs || b.endMs - a.endMs);
   
   let groups = [];
@@ -1738,16 +2064,17 @@ function renderAxis(){
       
       const block = document.createElement("div");
       block.className = "ev-block" + (ev.type === 'planned' ? " plan" : "");
+      
       block.style.top = `${topPx}px`;
       block.style.height = `${blockHeight}px`;
       block.style.left = `calc(${ev.leftPct}% + 2px)`;
       block.style.width = `calc(${ev.widthPct}% - 4px)`;
-      block.style.zIndex = 10 + (ev.col || 0);
+      block.style.zIndex = ev.type === 'actual' ? (20 + (ev.col || 0)) : (10 + (ev.col || 0));
       
       if (ev.type === 'actual') {
           const color = getCatColor(ev.cat);
-          block.style.backgroundColor = hexToRgba(color, 0.15);
-          block.style.border = `1px solid ${hexToRgba(color, 0.4)}`;
+          block.style.backgroundColor = hexToRgba(color, 0.3);
+          block.style.border = `1px solid ${hexToRgba(color, 0.8)}`;
           block.style.borderLeft = `4px solid ${color}`;
           block.style.color = '#1e293b';
       }
@@ -1802,21 +2129,34 @@ function openAxisAddModal(){
   const nowStr = formatDatetimeLocal(now);
   document.getElementById("addAxisTimeEnd").value = nowStr;
   
-  const today = todayStr();
-  const todayRecs = db.records.filter(r => r.end.startsWith(today) || r.start.startsWith(today)).sort((a,b)=> new Date(a.end)-new Date(b.end));
-  if (todayRecs.length > 0) {
-      document.getElementById("addAxisTimeStart").value = formatDatetimeLocal(new Date(todayRecs[todayRecs.length-1].end));
+  // 默认开始时间：全库最后一条结束记录+1分钟
+  const pastRecs = db.records.filter(r => new Date(r.end).getTime() < now.getTime()).sort((a,b) => new Date(b.end) - new Date(a.end));
+  if (pastRecs.length > 0) {
+      let lastEnd = new Date(pastRecs[0].end);
+      lastEnd.setMinutes(lastEnd.getMinutes() + 1);
+      if (lastEnd.getTime() > now.getTime()) lastEnd = now;
+      document.getElementById("addAxisTimeStart").value = formatDatetimeLocal(lastEnd);
   } else {
       const start = new Date(now.getTime() - 30 * 60000);
       document.getElementById("addAxisTimeStart").value = formatDatetimeLocal(start);
   }
   
-  document.getElementById("addAxisDur").value = "30";
   calcAxisTime('end');
+  
+  pinState.addAxis = { start: false, end: false };
+  document.getElementById("addAxisPinStart").classList.remove("active");
+  document.getElementById("addAxisPinEnd").classList.remove("active");
   
   document.getElementById("axisAddModal").classList.add("show");
 }
 function closeAxisAddModal(){ document.getElementById("axisAddModal").classList.remove("show"); }
+
+function togglePin(modal, field) {
+    pinState[modal][field] = !pinState[modal][field];
+    const el = document.getElementById(`${modal}Pin${field.charAt(0).toUpperCase() + field.slice(1)}`);
+    if (pinState[modal][field]) el.classList.add("active");
+    else el.classList.remove("active");
+}
 
 function saveAxisAdd(){
   const name = document.getElementById("addAxisEvName").value.trim();
@@ -1845,7 +2185,7 @@ function saveAxisAdd(){
     start: st.toISOString(), end: et.toISOString(), durationMs: dur*60000
   });
   
-  saveDB(); closeAxisAddModal(); renderAxis(); renderStats(); renderTodos();
+  saveDB(); closeAxisAddModal(); renderAxis(); renderStats(); renderTodos(); recalcLoad();
 }
 
 function openAxisEditModal(rid) {
@@ -1862,6 +2202,10 @@ function openAxisEditModal(rid) {
   document.getElementById("axisEditTimeStart").value = formatDatetimeLocal(st);
   document.getElementById("axisEditTimeEnd").value = formatDatetimeLocal(et);
   document.getElementById("axisEditDur").value = Math.round(r.durationMs/60000);
+  
+  pinState.axisEdit = { start: false, end: false };
+  document.getElementById("axisEditPinStart").classList.remove("active");
+  document.getElementById("axisEditPinEnd").classList.remove("active");
   
   document.getElementById("axisEditModal").classList.add("show");
 }
@@ -1892,7 +2236,7 @@ function saveAxisEdit() {
   r.end = et.toISOString(); 
   r.durationMs = newDur*60000;
   
-  saveDB(); closeAxisEditModal(); renderAxis(); renderStats(); renderTodos();
+  saveDB(); closeAxisEditModal(); renderAxis(); renderStats(); renderTodos(); recalcLoad();
   if (document.getElementById("singleEventModal").classList.contains("show")) renderSingleEventDetail();
 }
 
@@ -1900,7 +2244,7 @@ function deleteAxisRecord() {
   if(!confirm("确定要删除这条时间记录吗？")) return;
   pushUndo("删除记录");
   db.records = db.records.filter(r => r.rid !== currentAxisEditRid);
-  saveDB(); closeAxisEditModal(); renderAxis(); renderStats(); renderTodos();
+  saveDB(); closeAxisEditModal(); renderAxis(); renderStats(); renderTodos(); recalcLoad();
   if (document.getElementById("singleEventModal").classList.contains("show")) renderSingleEventDetail();
 }
 
@@ -1967,6 +2311,10 @@ function saveEdit(){
     ev.actionDateTime = actionDateTime; ev.est = est; ev.deadline = deadline; ev.note = note; ev.isArchived = isArchived; ev.dayBoundary = dayBoundary; ev.isPinned = isPinned;
   }
   saveDB(); renderCatTree(); renderTodos(); renderAxis(); renderPinnedArea(); closeEditModal();
+  
+  if (document.getElementById("archiveModal").classList.contains("show")) {
+      renderArchiveList();
+  }
 }
 
 /* ================= 统计 ================= */
@@ -2012,25 +2360,44 @@ function renderStats(){
 
   const totalMs = recs.reduce((s,r) => s + r.durationMs, 0);
   const mergedMs = getMergedDuration(recs);
-  document.getElementById("statTotal").innerText = `并发实际耗时: ${formatDuration(mergedMs)}`;
+  document.getElementById("statTotal").innerText = `实际自然耗时: ${formatDuration(mergedMs)}`;
 
   const colors = ["#ef4444","#3b82f6","#10b981","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f43f5e","#84cc16","#06b6d4"];
 
   const groupBy = document.getElementById("statGroupBySel") ? document.getElementById("statGroupBySel").value : "cat";
-  const getGroupKey = (r) => {
-    if (groupBy === "event") {
-      if (r.eventId && String(r.eventId).startsWith("cat_")) return r.cat || "其他";
-      return r.name || "未知";
-    }
-    return r.cat || "其他";
-  };
-
-  const catMap = {}; 
-  recs.forEach(r => { 
-      const c = getGroupKey(r);
-      catMap[c] = (catMap[c] || 0) + r.durationMs; 
-  });
-  const catArray = Object.entries(catMap).sort((a,b) => b[1] - a[1]);
+  let catArray = [];
+  
+  if (groupBy === "event") {
+    document.getElementById("rankTitle").innerText = "事项耗时排行 (实际明细)";
+    document.getElementById("pieTitle").innerText = "事项占比 (实际明细)";
+    
+    const evMap = {};
+    recs.forEach(r => { 
+        if (r.eventId && String(r.eventId).startsWith("cat_")) {
+            const c = r.cat || "其他";
+            evMap[c] = (evMap[c] || 0) + r.durationMs; 
+        } else {
+            const n = r.name || "未知";
+            evMap[n] = (evMap[n] || 0) + r.durationMs; 
+        }
+    });
+    catArray = Object.entries(evMap).sort((a,b) => b[1] - a[1]);
+  } else {
+    document.getElementById("rankTitle").innerText = "分类耗时排行 (去重合并)";
+    document.getElementById("pieTitle").innerText = "分类占比 (去重合并)";
+    
+    const catRecords = {};
+    recs.forEach(r => {
+        const c = r.cat || "其他";
+        if (!catRecords[c]) catRecords[c] = [];
+        catRecords[c].push(r);
+    });
+    
+    catArray = Object.keys(catRecords).map(c => {
+        const merged = getMergedDuration(catRecords[c]);
+        return [c, merged];
+    }).sort((a,b) => b[1] - a[1]);
+  }
   
   const maxV = catArray.length > 0 ? catArray[0][1] : 0;
   const catHtml = catArray.map(([k, v], idx) => {
@@ -2043,8 +2410,8 @@ function renderStats(){
   }).join("");
   document.getElementById("catRankList").innerHTML = catHtml || "<div style='color:#94a3b8'>暂无记录</div>";
 
-  const pieContainer = document.querySelector(".pie-wrap");
-  pieContainer.innerHTML = '<canvas id="pieChart"></canvas>';
+  const pieWrap = document.querySelectorAll(".pie-wrap")[0];
+  pieWrap.innerHTML = '<canvas id="pieChart"></canvas>';
   
   if (catArray.length > 0) {
       pieChart = new Chart(document.getElementById("pieChart"), { 
@@ -2069,10 +2436,11 @@ function renderStats(){
   const freqHtml = freqArray.map(([k, v]) => `<div class="rank-item"><span>🏆 <b>${k}</b></span><span style="color:#ef4444;font-weight:bold;">${v} 次</span></div>`).join("");
   document.getElementById("freqRankList").innerHTML = freqHtml || "<div style='color:#94a3b8'>暂无超过3次的事项</div>";
 
+  // ============ 并发洞察 ============
   let events = [];
   recs.forEach(r => {
-     events.push({ time: new Date(r.start).getTime(), type: 'start', name: r.name || "未知" });
-     events.push({ time: new Date(r.end).getTime(), type: 'end', name: r.name || "未知" });
+     events.push({ time: new Date(r.start).getTime(), type: 'start', name: r.name || "未知", rid: r.rid, eventId: r.eventId });
+     events.push({ time: new Date(r.end).getTime(), type: 'end', name: r.name || "未知", rid: r.rid, eventId: r.eventId });
   });
   events.sort((a, b) => a.time - b.time || (a.type === 'end' ? -1 : 1)); 
 
@@ -2097,26 +2465,95 @@ function renderStats(){
   const concArray = Object.entries(concurrentMap).sort((a,b) => b[1] - a[1]);
   const concHtml = concArray.map(([k, v]) => {
       const names = k.split(" + ");
-      let serialMs = 0;
+      let expectedSerialMs = 0;
       names.forEach(n => {
-          serialMs += recs.filter(r => r.name === n).reduce((s,r) => s + r.durationMs, 0);
+          const ev = db.events.find(e => e.name === n);
+          if (ev) expectedSerialMs += (ev.est || 30) * 60000;
       });
-      const saveMs = serialMs - v;
+      
+      const saveMs = expectedSerialMs - v;
+      
+      let timeStr = "";
+      let color = "";
+      if (saveMs > 0) {
+          timeStr = `节省 ${formatDuration(saveMs)}`;
+          color = "#15803d";
+      } else if (saveMs < 0) {
+          timeStr = `多花 ${formatDuration(-saveMs)}`;
+          color = "#ef4444";
+      } else {
+          timeStr = `无增减`;
+          color = "#64748b";
+      }
       
       return `<div class="rank-item" style="flex-direction:column; align-items:flex-start; gap:4px;">
       <div style="font-weight:bold; color:#333;">🔥 ${k}</div>
       <div style="font-size:12px; color:#64748b; display:flex; width:100%; justify-content:space-between; flex-wrap:wrap;">
-        <span>重叠跨度: <span style="color:#f59e0b; font-weight:bold;">${formatDuration(v)}</span></span>
-        <span>串行需: <span style="color:#3b82f6; font-weight:bold;">${formatDuration(serialMs)}</span></span>
-        <span>节省: <span style="color:#15803d; font-weight:bold;">${formatDuration(saveMs)}</span></span>
+        <span>实际重叠: <span style="color:#f59e0b; font-weight:bold;">${formatDuration(v)}</span></span>
+        <span>理论串行(预估): <span style="color:#3b82f6; font-weight:bold;">${formatDuration(expectedSerialMs)}</span></span>
       </div>
+      <div style="font-size:12px; font-weight:bold; color:${color}; width:100%; text-align:right;">${timeStr}</div>
     </div>`;
   }).join("");
   document.getElementById("concurrencyList").innerHTML = concHtml || "<div style='color:#94a3b8'>无并发情况</div>";
 
+
+  // ============ 四象限精力透视面板 ============
+  const quadMap = { 1: 0, 2: 0, 3: 0, 4: 0, 0: 0 };
+  const quadItems = { 1: {}, 2: {}, 3: {}, 4: {}, 0: {} };
+
+  recs.forEach(r => {
+      const ev = db.events.find(e => e.id === r.eventId);
+      let q = ev ? (ev.quad ?? 2) : 0; 
+      if (q === undefined) q = 2;
+      quadMap[q] = (quadMap[q] || 0) + r.durationMs;
+      
+      const name = r.name || "未知";
+      quadItems[q][name] = (quadItems[q][name] || 0) + r.durationMs;
+  });
+  
+  const quadColors = ["#94a3b8", "#ef4444", "#3b82f6", "#f59e0b", "#10b981"];
+  const quadLabels = ["未分类", "重要紧急", "重要不紧急", "紧急不重要", "不重要不紧急"];
+  
+  const quadPanel = document.getElementById("quadPanel");
+  quadPanel.innerHTML = "";
+  
+  for(let q of [1, 2, 3, 4]) {
+      const qMs = quadMap[q] || 0;
+      const pct = totalMs > 0 ? (qMs / totalMs) * 100 : 0;
+      const color = quadColors[q];
+      
+      const div = document.createElement("div");
+      div.className = "quad-panel-item";
+      div.innerHTML = `
+        <span style="font-weight:bold; width:110px; color:${color}">${quadLabels[q]}</span>
+        <div class="quad-bar-bg">
+            <div class="quad-bar-fill" style="width:${pct}%; background:${color};"></div>
+        </div>
+        <span style="width:50px; text-align:right; font-weight:bold;">${pct.toFixed(1)}%</span>
+        <span style="width:60px; text-align:right; color:#64748b; font-size:12px;">${formatDuration(qMs)}</span>
+      `;
+      
+      div.onclick = () => showQuadDetail(q, quadLabels[q], quadItems[q], color);
+      quadPanel.appendChild(div);
+  }
+
   if (isSingleDay) {
     renderHeatmap(recs, startDate);
   }
+}
+
+function showQuadDetail(q, label, items, color) {
+    const box = document.getElementById("quadDetailBox");
+    const entries = Object.entries(items).sort((a,b) => b[1] - a[1]);
+    
+    if (entries.length === 0) {
+        box.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:10px;">该象限暂无记录</div>`;
+    } else {
+        box.innerHTML = `<div style="font-weight:bold; margin-bottom:8px; color:${color};">📍 ${label} 明细</div>` + 
+        entries.map(([name, ms]) => `<div class="flex-row" style="justify-content:space-between; border-bottom:1px dashed #eee; padding:6px 0; font-size:13px;"><span>${name}</span><span style="color:#ef4444; font-weight:bold;">${formatDuration(ms)}</span></div>`).join("");
+    }
+    box.classList.add("show");
 }
 
 function renderHeatmap(recs, baseDate) {
@@ -2136,11 +2573,19 @@ function renderHeatmap(recs, baseDate) {
     }
   });
   
+  const maxMs = Math.max(...hourMs, 1); 
+  
   for (let i = 0; i < 24; i++) {
     const cell = document.createElement("div");
     cell.className = "heatmap-cell";
     if (hourMs[i] > 0) {
-      const alpha = 0.2 + Math.min(hourMs[i] / 3600000, 1) * 0.8; 
+      const ratio = hourMs[i] / maxMs;
+      let alpha = 0.1;
+      if (ratio > 0.8) alpha = 0.9;
+      else if (ratio > 0.6) alpha = 0.7;
+      else if (ratio > 0.3) alpha = 0.5;
+      else if (ratio > 0.1) alpha = 0.3;
+      
       cell.style.background = `rgba(64, 156, 148, ${alpha})`;
       cell.title = `${i}:00 - ${i+1}:00\n活跃: ${formatDuration(hourMs[i])}`;
       cell.onclick = () => alert(`${i}:00 - ${i+1}:00\n活跃时长: ${formatDuration(hourMs[i])}`);
@@ -2616,21 +3061,24 @@ function calcAxisTime(source) {
   const startEl = document.getElementById("addAxisTimeStart");
   const endEl = document.getElementById("addAxisTimeEnd");
   const durEl = document.getElementById("addAxisDur");
+  
   const startStr = startEl.value, endStr = endEl.value, durVal = Number(durEl.value);
-
-  if (source === 'start' || source === 'end') {
+  
+  if (pinState.addAxis.start) {
+      if (startStr && durVal > 0) {
+          const end = new Date(new Date(startStr).getTime() + durVal * 60000);
+          endEl.value = formatDatetimeLocal(end);
+      }
+  } else if (pinState.addAxis.end) {
+      if (endStr && durVal > 0) {
+          const start = new Date(new Date(endStr).getTime() - durVal * 60000);
+          startEl.value = formatDatetimeLocal(start);
+      }
+  } else {
       if (startStr && endStr) {
           const diff = (new Date(endStr) - new Date(startStr)) / 60000; 
           if (diff >= 0) durEl.value = Math.round(diff);
       } else if (startStr && durVal > 0) {
-          const end = new Date(new Date(startStr).getTime() + durVal * 60000);
-          endEl.value = formatDatetimeLocal(end);
-      } else if (endStr && durVal > 0) {
-          const start = new Date(new Date(endStr).getTime() - durVal * 60000);
-          startEl.value = formatDatetimeLocal(start);
-      }
-  } else if (source === 'dur') {
-      if (startStr && durVal > 0) {
           const end = new Date(new Date(startStr).getTime() + durVal * 60000);
           endEl.value = formatDatetimeLocal(end);
       } else if (endStr && durVal > 0) {
@@ -2646,19 +3094,21 @@ function calcAxisEditTime(source) {
   const durEl = document.getElementById("axisEditDur");
   const startStr = startEl.value, endStr = endEl.value, durVal = Number(durEl.value);
 
-  if (source === 'start' || source === 'end') {
+  if (pinState.axisEdit.start) {
+      if (startStr && durVal > 0) {
+          const end = new Date(new Date(startStr).getTime() + durVal * 60000);
+          endEl.value = formatDatetimeLocal(end);
+      }
+  } else if (pinState.axisEdit.end) {
+      if (endStr && durVal > 0) {
+          const start = new Date(new Date(endStr).getTime() - durVal * 60000);
+          startEl.value = formatDatetimeLocal(start);
+      }
+  } else {
       if (startStr && endStr) {
           const diff = (new Date(endStr) - new Date(startStr)) / 60000; 
           if (diff >= 0) durEl.value = Math.round(diff);
       } else if (startStr && durVal > 0) {
-          const end = new Date(new Date(startStr).getTime() + durVal * 60000);
-          endEl.value = formatDatetimeLocal(end);
-      } else if (endStr && durVal > 0) {
-          const start = new Date(new Date(endStr).getTime() - durVal * 60000);
-          startEl.value = formatDatetimeLocal(start);
-      }
-  } else if (source === 'dur') {
-      if (startStr && durVal > 0) {
           const end = new Date(new Date(startStr).getTime() + durVal * 60000);
           endEl.value = formatDatetimeLocal(end);
       } else if (endStr && durVal > 0) {
@@ -2780,19 +3230,75 @@ function batchDeleteSelected(){
   saveDB(); closeBatchModal(); renderAll();
 }
 
-function openArchiveModal() { document.getElementById("archiveSearch").value = ""; renderArchiveList(); document.getElementById("archiveModal").classList.add("show"); }
+function openArchiveModal() { 
+    document.getElementById("archiveSearch").value = ""; 
+    archiveSelected.clear(); 
+    renderArchiveList(); 
+    document.getElementById("archiveModal").classList.add("show"); 
+}
 function closeArchiveModal() { document.getElementById("archiveModal").classList.remove("show"); }
 function renderArchiveList() {
   const keyword = document.getElementById("archiveSearch").value.toLowerCase();
   const wrap = document.getElementById("archiveList"); wrap.innerHTML = "";
   const pool = db.events.filter(e => e.isArchived && e.name.toLowerCase().includes(keyword));
+  
   if (!pool.length) { wrap.innerHTML = '<div class="meta-small" style="padding:10px;text-align:center">无结果</div>'; return; }
+  
+  const selectAllBtn = document.getElementById("archiveSelectAllBtn");
+  if (pool.length > 0 && archiveSelected.size === pool.length) {
+      selectAllBtn.innerText = "取消全选";
+  } else {
+      selectAllBtn.innerText = "全选";
+  }
+
   pool.forEach(ev => {
+    const isChecked = archiveSelected.has(ev.id);
     const div = document.createElement("div"); div.className = "item-row";
-    div.innerHTML = `<div class="item-title">${ev.name} <span class="meta-small">(${ev.cat})</span></div><button class="secondary" style="padding:6px;font-size:12px" onclick="restoreFromArchive('${ev.id}')">恢复</button>`;
+    div.innerHTML = `
+      <input type="checkbox" class="item-checkbox" ${isChecked ? 'checked' : ''}>
+      <div class="item-title" style="cursor:pointer; flex:1;" onclick="openEditModal('${ev.id}')">${ev.name} <span class="meta-small">(${ev.cat})</span></div>
+      <button class="secondary" style="padding:6px;font-size:12px" onclick="restoreFromArchive('${ev.id}')">恢复</button>
+    `;
+    div.querySelector("input").onchange = (e) => {
+        if(e.target.checked) archiveSelected.add(ev.id);
+        else archiveSelected.delete(ev.id);
+        renderArchiveList();
+    };
     wrap.appendChild(div);
   });
 }
+
+function toggleArchiveAll() {
+    const keyword = document.getElementById("archiveSearch").value.toLowerCase();
+    const pool = db.events.filter(e => e.isArchived && e.name.toLowerCase().includes(keyword));
+    
+    if (archiveSelected.size === pool.length && pool.length > 0) {
+        archiveSelected.clear();
+    } else {
+        archiveSelected.clear();
+        pool.forEach(ev => archiveSelected.add(ev.id));
+    }
+    renderArchiveList();
+}
+
+function batchDeleteArchive() {
+    if (archiveSelected.size === 0) return alert("请先勾选要删除的任务");
+    if (!confirm(`⚠️ 确定要彻底删除选中的 ${archiveSelected.size} 个事项吗？此操作不可逆，且会清理关联记录。`)) return;
+    
+    pushUndo("批量删除归档");
+    const ids = Array.from(archiveSelected);
+    db.events = db.events.filter(e => !ids.includes(e.id));
+    ids.forEach(id => { 
+        delete db.doneEvents[id]; 
+        delete db.skippedEvents[id]; 
+        db.records = db.records.filter(r => r.eventId !== id); 
+        db.pulledEvents = db.pulledEvents.filter(x => x !== id); 
+    });
+    archiveSelected.clear();
+    saveDB(); renderArchiveList(); renderAll();
+    showToast("已彻底删除");
+}
+
 function restoreFromArchive(evId) {
   const ev = db.events.find(e => e.id === evId); if (!ev) return;
   pushUndo("恢复"); ev.isArchived = false; saveDB(); renderArchiveList(); renderCatTree();
@@ -2911,7 +3417,10 @@ function renderSingleEventDetail(){
 
   document.getElementById("singleRecordList").innerHTML = listHtml || "<div class='meta-small' style='padding:10px;text-align:center'>该周期内无记录</div>";
 }
-function editSingleRecord(rid){ openAxisEditModal(rid); }
+function editSingleRecord(rid){ 
+    closeSingleEventModal();
+    openAxisEditModal(rid); 
+}
 function deleteSingleRecord(rid){
   if (!confirm("确定删除这条记录吗？")) return;
   pushUndo("删除记录");
@@ -2943,23 +3452,20 @@ function batchImport(){
     const existing = db.events.find(e => e.id === id || e.id === lookupId2);
     let quadVal = 0; if (quadStr && ["1","2","3","4"].includes(quadStr)) quadVal = Number(quadStr);
     
-    // 处理截止时间
     let finalDeadline = "";
     if (deadlineStr) {
         const d = new Date(deadlineStr.replace(/-/g, '/').replace(/T/, ' '));
         if (!isNaN(d.getTime())) {
-            if (deadlineStr.length <= 10) d.setHours(23, 59, 59, 0); // 如果只有日期，默认当天 23:59
+            if (deadlineStr.length <= 10) d.setHours(23, 59, 59, 0);
             finalDeadline = formatDatetimeLocal(d);
         }
     }
 
     if (existing) {
-      // 带ID，执行修改更新
       existing.cat = catName; existing.name = evName; existing.freq = freq; existing.est = Number(estStr)||30; existing.quad = quadVal; 
       if (deadlineStr) existing.deadline = finalDeadline;
       updated++;
     } else {
-      // 无ID或ID不存在，执行新增
       db.events.push({ id: id, cat: catName, name: evName, freq: freq, est: Number(estStr)||30, quad: quadVal, deadline: finalDeadline }); added++;
     }
   });
@@ -2967,7 +3473,6 @@ function batchImport(){
 }
 
 function exportToTXT() {
-  // 按分类树顺序排序（通过 db.categories 索引）
   const catOrder = {};
   db.categories.forEach((c, i) => { catOrder[c] = i; });
   
@@ -2975,7 +3480,7 @@ function exportToTXT() {
     const orderA = catOrder[a.cat] !== undefined ? catOrder[a.cat] : 9999;
     const orderB = catOrder[b.cat] !== undefined ? catOrder[b.cat] : 9999;
     if (orderA !== orderB) return orderA - orderB;
-    return a.name.localeCompare(b.name); // 同分类下按名称排序，方便核对
+    return a.name.localeCompare(b.name);
   });
 
   const lines = sortedEvents.map(e => {
@@ -3002,11 +3507,14 @@ function importBackup(input){
   r.onload = e => {
     try{
       pushUndo("导入备份"); const data = JSON.parse(e.target.result); db = data;
-      db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}}; 
+      db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}, scheduleMode: false, scheduledIds: []}; 
       if(!db.settings.todoCatFilters) db.settings.todoCatFilters = [];
       if(!db.settings.todoViewMode) db.settings.todoViewMode = 'all';
       if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
       if(!db.settings.quadCollapsed) db.settings.quadCollapsed = {1:false,2:false,3:false,4:false,0:false};
+      if(typeof db.settings.scheduleMode === 'undefined') db.settings.scheduleMode = false;
+      if(!Array.isArray(db.settings.scheduledIds)) db.settings.scheduledIds = [];
+      
       db.doneEvents = db.doneEvents || {}; db.skippedEvents = db.skippedEvents || {}; 
       db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
       db.pausedTimers = db.pausedTimers || []; db.pulledEvents = db.pulledEvents || []; db.selectedCats = db.selectedCats || []; db.collapsedCats = db.collapsedCats || [];
@@ -3069,11 +3577,14 @@ function restoreFromText() {
         
         pushUndo("从文本恢复备份");
         db = data;
-        db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}}; 
+        db.settings = db.settings || {sleepNeed:7.5, lastActiveDate: '', todoCatFilters: [], todoViewMode: 'all', pinnedCombos: [], quadCollapsed: {1:false,2:false,3:false,4:false,0:false}, scheduleMode: false, scheduledIds: []}; 
         if(!db.settings.todoCatFilters) db.settings.todoCatFilters = [];
         if(!db.settings.todoViewMode) db.settings.todoViewMode = 'all';
         if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
         if(!db.settings.quadCollapsed) db.settings.quadCollapsed = {1:false,2:false,3:false,4:false,0:false};
+        if(typeof db.settings.scheduleMode === 'undefined') db.settings.scheduleMode = false;
+        if(!Array.isArray(db.settings.scheduledIds)) db.settings.scheduledIds = [];
+        
         db.doneEvents = db.doneEvents || {}; db.skippedEvents = db.skippedEvents || {}; 
         db.categories = db.categories || []; db.events = db.events || []; db.records = db.records || []; db.timers = db.timers || {}; 
         db.pausedTimers = db.pausedTimers || []; db.pulledEvents = db.pulledEvents || []; db.selectedCats = db.selectedCats || []; db.collapsedCats = db.collapsedCats || [];
@@ -3110,7 +3621,22 @@ setInterval(() => {
   }
 }, 1000);
 
-function renderAll(){ renderCatTree(); renderTodos(); renderGlobalTimers(); renderAxis(); renderStats(); renderPinnedArea(); }
+function renderAll(){ 
+    renderCatTree(); 
+    renderTodos(); 
+    renderGlobalTimers(); 
+    renderAxis(); 
+    renderStats(); 
+    renderPinnedArea(); 
+    
+    if (db.settings.scheduleMode) {
+        document.getElementById("scheduleModeToggle").checked = true;
+        document.getElementById("scheduleBatchBar").style.display = "flex";
+    } else {
+        document.getElementById("scheduleModeToggle").checked = false;
+        document.getElementById("scheduleBatchBar").style.display = "none";
+    }
+}
 
 loadDB(); 
 document.getElementById("axisDate").value = todayStr(); 
