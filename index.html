@@ -294,6 +294,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
     <div class="flex-row">
       <button class="secondary" onclick="openAddTasksModal()" style="background:#4caf50; font-size:13px; padding:6px 10px;">＋ 任务池</button>
       <button class="secondary" onclick="archiveAllExpired()" style="font-size:12px; padding:4px 8px; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; margin-left:auto; font-weight:normal;">🧹 清理过期</button>
+      <button class="secondary" onclick="openAvoidModal()" style="font-size:12px; padding:4px 8px; background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; font-weight:normal;">⛔ 时段规则</button>
     </div>
   </div>
   <div class="flex-row" style="background:#f8fafc; padding:8px; border-radius:8px; gap:10px;">
@@ -358,7 +359,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="flex-row" style="margin-bottom:10px">
 <input type="date" id="axisDate" style="padding:8px;" onchange="renderAxis()">
 <button onclick="renderAxis()">刷新</button>
-<button class="secondary" onclick="openAxisAddModal()" style="background:#4caf50">＋ 补录</button>
+<button class="secondary" onclick="openAxisAddModal()" style="background:#4caf50">＋ 记录/计划</button>
 </div>
 <div id="axisWrap" style="height: 65vh; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; background:#f8fafc; position:relative;"></div>
 </div>
@@ -524,6 +525,19 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <button class="secondary" onclick="calcDeadline()" style="padding:6px 12px; font-size:13px;">换算</button>
 </div>
 </div>
+<div class="form-group" style="background:#fff7ed; padding:10px; border-radius:8px; border:1px solid #fed7aa;">
+<label style="color:#c2410c; font-weight:bold;">⏳ 时间约束（签到/固定日程可选）</label>
+<div class="flex-row" style="align-items:center; gap:8px; margin-top:6px;">
+  <input type="checkbox" id="editDailyDeadlineChk" style="width:16px;height:16px;"><label for="editDailyDeadlineChk" style="font-size:13px;">每日截止</label>
+  <input type="time" id="editDailyDeadline" style="padding:5px; border-color:#fdba74;" value="23:59">
+  <span style="font-size:11px;color:#9a3412;">每天该时刻前做完(自动倒排)</span>
+</div>
+<div class="flex-row" style="align-items:center; gap:8px; margin-top:6px;">
+  <input type="checkbox" id="editDailyFixedChk" style="width:16px;height:16px;"><label for="editDailyFixedChk" style="font-size:13px;">每日固定</label>
+  <input type="time" id="editDailyFixed" style="padding:5px; border-color:#fdba74;" value="09:00">
+  <span style="font-size:11px;color:#9a3412;">每天该时刻自动排入(时长=预估)</span>
+</div>
+</div>
 <div class="form-group"><label>计划行动时间 (留空不排期)</label><input type="datetime-local" id="editActionDateTime"></div>
 <div class="form-group"><label>预估耗时(分)</label><input type="number" id="editEst"></div>
 <div class="form-group"><label>备注说明</label><textarea id="editNote" style="min-height:60px;"></textarea></div>
@@ -552,7 +566,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="form-group">
   <label>开始时间</label>
   <div class="time-input-group">
-    <input type="datetime-local" id="axisEditTimeStart" oninput="calcAxisEditTime('start')" onchange="calcAxisEditTime('start')">
+    <input type="datetime-local" id="axisEditTimeStart" onchange="calcAxisEditTime('start')">
     <span class="pin-btn" id="axisEditPinStart" onclick="togglePin('axisEdit', 'start')" title="锁定开始时间">📌</span>
   </div>
 </div>
@@ -560,7 +574,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="form-group">
   <label>结束时间</label>
   <div class="time-input-group">
-    <input type="datetime-local" id="axisEditTimeEnd" oninput="calcAxisEditTime('end')" onchange="calcAxisEditTime('end')">
+    <input type="datetime-local" id="axisEditTimeEnd" onchange="calcAxisEditTime('end')">
     <span class="pin-btn" id="axisEditPinEnd" onclick="togglePin('axisEdit', 'end')" title="锁定结束时间">📌</span>
   </div>
 </div>
@@ -568,7 +582,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="form-group">
   <label>耗时（分钟）</label>
   <div class="time-input-group">
-    <input type="number" id="axisEditDur" min="1" oninput="calcAxisEditTime('dur')" onchange="calcAxisEditTime('dur')">
+    <input type="number" id="axisEditDur" min="1" onchange="calcAxisEditTime('dur')">
   </div>
 </div>
 
@@ -585,13 +599,20 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 
 <div class="modal-overlay" id="axisAddModal">
 <div class="modal">
-<h3>补录时间轴记录</h3>
+<h3>添加记录 / 计划</h3>
+<div class="form-group">
+  <label>类型</label>
+  <div class="flex-row" style="gap:18px;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal;color:#333;cursor:pointer;"><input type="radio" name="axisAddMode" value="record" checked onchange="onAxisAddModeChange()"> 补录（历史/实际）</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:normal;color:#333;cursor:pointer;"><input type="radio" name="axisAddMode" value="plan" onchange="onAxisAddModeChange()"> 添加计划（未来）</label>
+  </div>
+</div>
 <div class="form-group"><label>事项名称 (支持分类)</label><input id="addAxisEvName" list="allEventsListAdd"><datalist id="allEventsListAdd"></datalist></div>
 
 <div class="form-group">
   <label>开始时间</label>
   <div class="time-input-group">
-    <input type="datetime-local" id="addAxisTimeStart" oninput="calcAxisTime('start')" onchange="calcAxisTime('start')">
+    <input type="datetime-local" id="addAxisTimeStart" onchange="calcAxisTime('start')">
     <span class="pin-btn" id="addAxisPinStart" onclick="togglePin('addAxis', 'start')" title="锁定开始时间">📌</span>
   </div>
 </div>
@@ -599,7 +620,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="form-group">
   <label>结束时间</label>
   <div class="time-input-group">
-    <input type="datetime-local" id="addAxisTimeEnd" oninput="calcAxisTime('end')" onchange="calcAxisTime('end')">
+    <input type="datetime-local" id="addAxisTimeEnd" onchange="calcAxisTime('end')">
     <span class="pin-btn" id="addAxisPinEnd" onclick="togglePin('addAxis', 'end')" title="锁定结束时间">📌</span>
   </div>
 </div>
@@ -607,7 +628,7 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 <div class="form-group">
   <label>耗时（分钟）</label>
   <div class="time-input-group">
-    <input type="number" id="addAxisDur" min="1" oninput="calcAxisTime('dur')" onchange="calcAxisTime('dur')">
+    <input type="number" id="addAxisDur" min="1" onchange="calcAxisTime('dur')">
   </div>
 </div>
 
@@ -676,6 +697,32 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 </div>
 </div>
 
+<div class="modal-overlay" id="avoidModal">
+<div class="modal" style="max-width:560px;">
+<h3>⛔ 时段避让规则</h3>
+<p style="font-size:12px;color:#64748b;margin:4px 0 10px;">设置某些事项/分类在特定每日时段不可安排。规则随数据保存，可随时增删改。</p>
+<div id="avoidList" style="max-height:40vh;overflow-y:auto;"></div>
+<div style="background:#f8fafc;padding:10px;border-radius:8px;margin-top:10px;border:1px dashed #cbd5e1;">
+  <div style="font-weight:bold;font-size:13px;margin-bottom:6px;">＋ 新增规则</div>
+  <div class="flex-row" style="gap:8px;flex-wrap:wrap;">
+    <select id="avScope" onchange="onAvoidScopeChange()" style="padding:6px;"><option value="cat">按分类</option><option value="event">按具体事项</option></select>
+    <select id="avTarget" style="padding:6px;flex:1;min-width:120px;"></select>
+  </div>
+  <div class="flex-row" style="gap:8px;margin-top:6px;flex-wrap:wrap;">
+    <label style="font-size:12px;">禁用起 <input type="time" id="avStart" value="00:00" style="padding:5px;"></label>
+    <label style="font-size:12px;">禁用止 <input type="time" id="avEnd" value="07:00" style="padding:5px;"></label>
+  </div>
+  <div class="flex-row" style="gap:8px;margin-top:6px;flex-wrap:wrap;">
+    <select id="avDays" style="padding:6px;"><option value="every">每天</option><option value="work">工作日</option><option value="weekend">周末</option></select>
+    <label style="font-size:12px;"><input type="checkbox" id="avForce"> 强制禁止</label>
+    <button onclick="addAvoidRule()" style="padding:6px 14px;">添加</button>
+  </div>
+</div>
+<div class="flex-row" style="justify-content:flex-end;margin-top:12px;">
+  <button class="secondary" onclick="closeAvoidModal()">关闭</button>
+</div>
+</div>
+</div>
 <div class="modal-overlay" id="singleEventModal">
 <div class="modal">
 <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -926,6 +973,7 @@ function loadDB(){
   if(!Array.isArray(db.settings.pinnedCombos)) db.settings.pinnedCombos = [];
   if(typeof db.settings.scheduleMode === 'undefined') db.settings.scheduleMode = false;
   if(!Array.isArray(db.settings.scheduledIds)) db.settings.scheduledIds = [];
+  if(!Array.isArray(db.settings.avoidRules)) db.settings.avoidRules = [];
   
   if(!db.doneEvents) db.doneEvents = {};
   if(!db.skippedEvents) db.skippedEvents = {};
@@ -940,6 +988,11 @@ function loadDB(){
   db.batchChecked = new Set(Array.isArray(db.batchChecked) ? db.batchChecked : []);
 
   db.events.forEach(ev => { if(!ev.cat) ev.cat = "未分类"; });
+  db.events.forEach(ev => {
+    if(typeof ev.dailyDeadline === "undefined") ev.dailyDeadline = "";
+    if(typeof ev.dailyFixed === "undefined") ev.dailyFixed = "";
+    if(typeof ev.fixedOverride !== "object" || ev.fixedOverride === null) ev.fixedOverride = {};
+  });
 
   if (db.doneEvents) {
     Object.keys(db.doneEvents).forEach(evId => {
@@ -959,7 +1012,7 @@ function loadDB(){
     else db.skippedEvents[evId] = arr;
   });
 
-  if (Array.isArray(db.settings.todoCatFilters) && db.settings.todoCatFilters.length > 0) {
+  if (Array.isArray(db.settings.todoCatFilters) && db.settings.todoCatFilters.indexOf("__NONE__") < 0 && db.settings.todoCatFilters.length > 0) {
     const allPaths = new Set();
     db.events.forEach(ev => {
       if (!ev.cat) return;
@@ -1021,63 +1074,217 @@ function getMergedDuration(records) {
   return merged.reduce((sum, cur) => sum + (cur[1] - cur[0]), 0);
 }
 
+
+/* ============ 时间约束引擎：每日截止 / 每日固定 / 避让规则 ============ */
+function hhmmToMin(t){ if(!t||t.indexOf(":")<0) return -1; const p=t.split(":"); return (+p[0])*60+(+p[1]); }
+function getAvoidRules(){ return Array.isArray(db.settings.avoidRules)?db.settings.avoidRules:[]; }
+function ruleActiveOnDay(rule, dateStr){
+  const dow=new Date(dateStr+"T00:00:00").getDay();
+  if(rule.days==="work") return dow>=1&&dow<=5;
+  if(rule.days==="weekend") return dow===0||dow===6;
+  return true;
+}
+function ruleMatches(rule, ev){
+  if(rule.scope==="event") return ev.id===rule.target;
+  const c=(ev.cat||"未分类");
+  return c===rule.target || c.indexOf(rule.target+"/")===0;
+}
+function avoidIntervalsForDate(ev, dateStr){
+  const dayStart=new Date(dateStr+"T00:00:00").getTime(), dayEnd=dayStart+86400000;
+  const out=[];
+  getAvoidRules().forEach(r=>{
+    if(!ruleMatches(r,ev)||!ruleActiveOnDay(r,dateStr)) return;
+    const sm=hhmmToMin(r.start), em=hhmmToMin(r.end); if(sm<0||em<0) return;
+    if(sm<em){ out.push([dayStart+sm*60000, dayStart+em*60000]); }
+    else { out.push([dayStart+sm*60000, dayEnd]); out.push([dayStart, dayStart+em*60000]); }
+  });
+  return out;
+}
+function isSlotForbidden(ev, startMs, dur, dateStr){
+  const endMs=startMs+dur;
+  return avoidIntervalsForDate(ev,dateStr).some(iv=> startMs<iv[1] && endMs>iv[0]);
+}
+function getDeadlineEndMs(ev, dateStr){
+  const dayStart=new Date(dateStr+"T00:00:00").getTime();
+  if(ev.dailyDeadline && hhmmToMin(ev.dailyDeadline)>=0) return dayStart+hhmmToMin(ev.dailyDeadline)*60000;
+  if(ev.deadline){ const dt=new Date(ev.deadline).getTime(); if(!isNaN(dt) && dateToStr(new Date(dt))===dateStr) return dt; }
+  return null;
+}
+function placeBefore(desiredEnd, dur, dayStart, occupied, forbidden){
+  let end=desiredEnd, guard=0;
+  while(guard++<4000){
+    let start=end-dur;
+    if(start<dayStart) start=dayStart;
+    let moved=false;
+    for(const o of occupied){ if(start<o[1]&&end>o[0]){ end=o[0]; moved=true; break; } }
+    if(moved){ if(end<=dayStart) return null; continue; }
+    for(const o of forbidden){ if(start<o[1]&&end>o[0]){ end=o[0]; moved=true; break; } }
+    if(moved){ if(end<=dayStart) return null; continue; }
+    return {start,end};
+  }
+  return null;
+}
+function openAvoidModal(){ document.getElementById("avoidModal").classList.add("show"); onAvoidScopeChange(); renderAvoidList(); }
+function closeAvoidModal(){ document.getElementById("avoidModal").classList.remove("show"); }
+function adjustFixedBlock(evId, dateStr){
+  const ev=db.events.find(e=>e.id===evId); if(!ev) return;
+  const cur=(ev.fixedOverride&&ev.fixedOverride[dateStr])||ev.dailyFixed||"09:00";
+  const v=prompt("调整「"+ev.name+"」在 "+dateStr+" 的固定开始时间 (HH:MM)，输入 reset 恢复每天默认", cur);
+  if(v===null) return;
+  if(!ev.fixedOverride) ev.fixedOverride={};
+  const t=v.trim();
+  if(t==="reset"){ delete ev.fixedOverride[dateStr]; }
+  else if(/^\d{1,2}:\d{2}$/.test(t)){ const p=t.split(":"); ev.fixedOverride[dateStr]=String(Math.min(23,+p[0])).padStart(2,"0")+":"+String(Math.min(59,+p[1])).padStart(2,"0"); }
+  else { alert("时间格式应为 HH:MM"); return; }
+  saveDB(); renderAxis(); renderTodos(); recalcLoad();
+}
+function onAvoidScopeChange(){
+  const scope=document.getElementById("avScope").value;
+  const sel=document.getElementById("avTarget"); sel.innerHTML="";
+  if(scope==="cat"){
+    (typeof getAllCatPaths==="function"?getAllCatPaths():db.categories.slice()).forEach(c=>{ const o=document.createElement("option"); o.value=c;o.textContent=c;sel.appendChild(o); });
+  } else {
+    db.events.filter(e=>!e.isArchived).forEach(e=>{ const o=document.createElement("option"); o.value=e.id;o.textContent=e.name;sel.appendChild(o); });
+  }
+}
+function renderAvoidList(){
+  const box=document.getElementById("avoidList"); const rules=getAvoidRules();
+  if(!rules.length){ box.innerHTML='<div style="color:#94a3b8;font-size:13px;padding:8px;">暂无规则。在下方添加。</div>'; return; }
+  box.innerHTML=rules.map((r,i)=>{
+    const tn=r.scope==="event"?((db.events.find(e=>e.id===r.target)||{}).name||r.target):r.target;
+    const dn=r.days==="work"?"工作日":r.days==="weekend"?"周末":"每天";
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #f1f5f9;font-size:13px;">
+      <span style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:4px;">${r.scope==="event"?"事项":"分类"}: ${tn}</span>
+      <span>⛔ ${r.start}-${r.end} ${dn}</span>
+      ${r.force?'<span style="color:#dc2626;">强制</span>':''}
+      <button onclick="delAvoidRule(${i})" style="margin-left:auto;background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 8px;">删</button>
+    </div>`;
+  }).join("");
+}
+function addAvoidRule(){
+  const scope=document.getElementById("avScope").value;
+  const target=document.getElementById("avTarget").value;
+  const start=document.getElementById("avStart").value, end=document.getElementById("avEnd").value;
+  const days=document.getElementById("avDays").value;
+  const force=document.getElementById("avForce").checked;
+  if(!target) return showToast("请选择适用对象");
+  if(!start||!end) return showToast("请填禁用时段");
+  if(!Array.isArray(db.settings.avoidRules)) db.settings.avoidRules=[];
+  db.settings.avoidRules.push({id:"av_"+Date.now(),scope,target,start,end,days,force});
+  saveDB(); renderAvoidList(); renderAxis(); showToast("已添加避让规则");
+}
+function delAvoidRule(i){ const r=getAvoidRules(); r.splice(i,1); db.settings.avoidRules=r; saveDB(); renderAvoidList(); renderAxis(); }
+
 function recalcLoad(){
   const todayDateStr = todayStr();
   const now = new Date();
-  
+
+  // 统一的"睡眠"识别：名称或分类含"睡"或 sleep 视为睡眠
+  function isSleepText(t){
+      if(!t) return false;
+      const str = String(t).toLowerCase();
+      return str.indexOf("睡") !== -1 || str.indexOf("sleep") !== -1;
+  }
+  function isSleepEv(ev){
+      return isSleepText(ev && ev.name) || isSleepText(ev && ev.cat);
+  }
+
   // 实际已用并发跨度
   const dayRecs = db.records.filter(r => {
-    const st = new Date(r.start);
-    return dateToStr(st) === todayDateStr;
+      const st = new Date(r.start);
+      return dateToStr(st) === todayDateStr;
   });
   const usedMs = getMergedDuration(dayRecs);
   const usedMin = usedMs / 60000;
-  
-  // 今日还未完成的计划时长
-  const plannedTasks = db.events.filter(ev => 
-      ev.actionDateTime && 
-      ev.actionDateTime.startsWith(todayDateStr) && 
+
+  // 今日还未完成、且已排期的计划
+  const plannedTasks = db.events.filter(ev =>
+      ev.actionDateTime &&
+      ev.actionDateTime.startsWith(todayDateStr) &&
       !isEventDoneForDate(ev, todayDateStr) &&
       !ev.isArchived
   );
-  const plannedMin = plannedTasks.reduce((s, ev) => s + (ev.est || 30), 0);
-  
-  // 计算今日实际睡眠时长（按包含“睡”的分类或名称判断）
+
+  // 手动添加/已排期的睡眠计划一律视为"未发生"，与待办一样占用可用时间（计入待办预估）；
+  // 仅"已记录的睡眠"才抵扣目标睡眠、不占容量。plannedSleepMin 仅用于抵扣系统预留睡眠，避免双重占用。
+  let plannedSleepMin = 0;
+  const plannedTaskIds = {};
+  plannedTasks.forEach(ev => {
+      plannedTaskIds[ev.id] = true; // 已排期事项（无论睡眠与否）都在池中跳过，避免重复计
+      if (isSleepEv(ev)) {
+          plannedSleepMin += (ev.est || 30);
+      }
+  });
+  // 每日固定事项同样占用今日可用容量（无 actionDateTime，需单独并入，避免"排了却不占容量"）
+  let fixedMin = 0, fixedSleepMin = 0;
+  db.events.forEach(ev => {
+      if(!ev.dailyFixed || ev.isArchived) return;
+      if(isEventDoneForDate(ev, todayDateStr) || isEventSkippedForDate(ev.id, todayDateStr)) return;
+      if(ev.actionDateTime && ev.actionDateTime.startsWith(todayDateStr)) return; // 已单独计入
+      const d = (ev.est || 30); fixedMin += d;
+      if(isSleepEv(ev)) fixedSleepMin += d;
+  });
+  const plannedMin = plannedTasks.reduce((s, ev) => s + (ev.est || 30), 0) + fixedMin;
+
+  // 排期选择池（已勾选但尚未应用时间的待排事项），实时计入容量
+  let poolTodoMin = 0;
+  let poolSleepMin = 0;
+  const poolIds = Array.isArray(db.settings.scheduledIds) ? db.settings.scheduledIds : [];
+  poolIds.forEach(id => {
+      if (plannedTaskIds[id]) return; // 已排期的不重复计
+      const ev = db.events.find(e => e.id === id);
+      if (!ev || ev.isArchived) return;
+      if (isEventDoneForDate(ev, todayDateStr)) return;
+      const dur = (ev.est || 30);
+      poolTodoMin += dur;                     // 睡眠计划（未发生）同样占用可用容量
+      if (isSleepEv(ev)) poolSleepMin += dur; // 仅用于抵扣系统预留睡眠，避免双重占时
+  });
+
+  // 计算今日实际睡眠时长（按包含"睡"的分类或名称判断）
   let actualSleepMin = 0;
   dayRecs.forEach(r => {
-      const isSleep = (r.name && r.name.includes("睡")) || (r.cat && r.cat.includes("睡"));
+      const isSleep = isSleepText(r.name) || isSleepText(r.cat);
       if (isSleep) actualSleepMin += r.durationMs / 60000;
   });
 
   const targetSleepMin = (db.settings.sleepNeed || 7.5) * 60;
-  let virtualSleepMin = Math.max(0, targetSleepMin - actualSleepMin);
-  
+  // 只有"已记录的睡眠"才真正抵扣目标睡眠需求；
+  // 手动添加/排期池的睡眠计划是"打算睡、还没睡"，不抵扣已睡时长，但仍抵扣系统额外预留（避免预留与计划双重占时）。
+  const sleepCoveredMin = actualSleepMin;
+  let virtualSleepMin = Math.max(0, targetSleepMin - actualSleepMin - plannedSleepMin - poolSleepMin - fixedSleepMin);
+  const sleepPlanMin = plannedSleepMin + poolSleepMin; // 未发生的睡眠计划总量（已计入待办预估/已选待排，占用容量）
+
   // 剩余自然时间 (到今晚24点)
   const todayEnd = new Date(todayDateStr + 'T23:59:59').getTime();
   let remainNaturalMin = (todayEnd - now.getTime()) / 60000;
-  if (remainNaturalMin < 0) remainNaturalMin = 0; 
-  
-  const remainMin = remainNaturalMin - plannedMin - virtualSleepMin;
-  
+  if (remainNaturalMin < 0) remainNaturalMin = 0;
+
+  const remainMin = remainNaturalMin - plannedMin - poolTodoMin - virtualSleepMin;
+
   const hRemain = (remainMin/60).toFixed(1);
   const hPlan = (plannedMin/60).toFixed(1);
+  const hPool = (poolTodoMin/60).toFixed(1);
   const hSleepTarget = (targetSleepMin/60).toFixed(1);
   const hSleepActual = (actualSleepMin/60).toFixed(1);
+  const hSleepCovered = (sleepCoveredMin/60).toFixed(1);
   const hSleepVirtual = (virtualSleepMin/60).toFixed(1);
 
   const tip = document.getElementById("loadTip");
-  let html = `<div>目标睡眠: ${hSleepTarget}h | 已记录睡眠: <span style="color:#8b5cf6">${hSleepActual}h</span> | 待办预估: <span style="color:#f59e0b">${hPlan}h</span></div>`;
-  
+  const hSleepPlan = (sleepPlanMin/60).toFixed(1);
+  let html = `<div>目标睡眠: ${hSleepTarget}h | 已记录睡眠: <span style="color:#8b5cf6">${hSleepActual}h</span> | 睡眠计划(未发生·占时): <span style="color:#8b5cf6">${hSleepPlan}h</span> | 待办预估: <span style="color:#f59e0b">${hPlan}h</span> | 已选待排: <span style="color:#2563eb">${hPool}h</span></div>`;
+
   if (virtualSleepMin > 0) {
-      html += `<div style="font-size:12px; color:#94a3b8; margin-top:2px;">* 系统已为你预留剩余睡眠: ${hSleepVirtual}h</div>`;
+      html += `<div style="font-size:12px; color:#94a3b8; margin-top:2px;">* 目标睡眠尚未排满/睡满，系统仍为你预留剩余睡眠: ${hSleepVirtual}h。</div>`;
+  } else if (sleepPlanMin > 0) {
+      html += `<div style="font-size:12px; color:#0891b2; margin-top:2px;">* 睡眠计划尚未发生，已计入待办预估/已选待排、占用可用时间。</div>`;
   } else {
-      html += `<div style="font-size:12px; color:#15803d; margin-top:2px;">* 实际睡眠已达标，不额外占用今日剩余时间。</div>`;
+      html += `<div style="font-size:12px; color:#15803d; margin-top:2px;">* 睡眠已由记录达标，不额外占用今日剩余时间。</div>`;
   }
 
   if(remainMin < 0) {
-    html += `<div style="color:#b91c1c; font-weight:bold; margin-top:6px;">⚠️ 超载！按当前计划，你还差 ${Math.abs(hRemain)}h 无法完成，请考虑删减排期。</div>`;
+    html += `<div style="color:#b91c1c; font-weight:bold; margin-top:6px;">⚠️ 超载！按当前计划+已选事项，你还差 ${Math.abs(hRemain)}h 无法完成，请考虑删减排期。</div>`;
   } else {
-    html += `<div style="color:#15803d; font-weight:bold; margin-top:6px;">✅ 剩余可用容量 ${hRemain}h。</div>`;
+    html += `<div style="color:#15803d; font-weight:bold; margin-top:6px;">✅ 剩余可用容量 ${hRemain}h（已实时扣减已选待排 ${hPool}h）。</div>`;
   }
   tip.innerHTML = html;
 }
@@ -1141,14 +1348,16 @@ function clearTodayPlans() {
 function updateCatFilterBtnText() {
   const span = document.getElementById("catFilterText");
   const filters = db.settings.todoCatFilters;
-  const totalCats = document.querySelectorAll('.cat-filter-item').length;
-  
-  if (filters.length === 0 || filters.length === totalCats) {
+  if (filters.length === 1 && filters[0] === "__NONE__") { span.innerText = "未选分类"; return; }
+  const roots = allRootCatPaths();
+  const allChecked = roots.length === 0 || roots.every(r => isCatPathChecked(r, filters));
+  const vis = filters.filter(f => f !== "__NONE__");
+  if (filters.length === 0 || allChecked) {
     span.innerText = "全部分类";
-  } else if (filters.length === 1) {
-    span.innerText = filters[0].split("/").pop();
+  } else if (vis.length === 1) {
+    span.innerText = vis[0].split("/").pop();
   } else {
-    span.innerText = `已选 ${filters.length} 类`;
+    span.innerText = `已选 ${vis.length} 类`;
   }
 }
 
@@ -1169,10 +1378,10 @@ document.addEventListener('click', function(e) {
 
 function toggleAllCats(selectAll) {
   if (selectAll) {
-    const allCats = Array.from(document.querySelectorAll('.cat-filter-item input')).map(i => i.value);
-    db.settings.todoCatFilters = allCats;
+    db.settings.todoCatFilters = allRootCatPaths();
   } else {
-    db.settings.todoCatFilters = [];
+    // 哨兵表示“显式全不选”，区别于“空=默认全选”
+    db.settings.todoCatFilters = ["__NONE__"];
   }
   saveDB();
   renderCatFilterDropdown();
@@ -1180,69 +1389,102 @@ function toggleAllCats(selectAll) {
   renderTodos();
 }
 
+// 汇总所有出现过的分类路径（事件分类 + 已登记分类），供筛选下拉与勾选判定共用
+function getAllCatPaths() {
+    const set = new Set();
+    (db.events || []).forEach(ev => {
+        if (!ev.cat) ev.cat = "未分类";
+        let path = "";
+        ev.cat.split("/").filter(Boolean).forEach(p => { path = path ? path + "/" + p : p; set.add(path); });
+    });
+    (db.categories || []).forEach(c => {
+        let path = "";
+        (c || "").split("/").filter(Boolean).forEach(p => { path = path ? path + "/" + p : p; set.add(path); });
+    });
+    return Array.from(set);
+}
+
+// ===== 文件夹式分类勾选（三态：全选 / 半选 / 未选）=====
+// filters 存“被完整勾选的节点路径”。节点显示为勾选 = 它或它的某个祖先在 filters 中；
+// 半选(indeterminate) = 自身/祖先都没勾，但某个子孙在 filters 中。filters 为空 == 全部选中。
+
+// 所有根分类
+function allRootCatPaths() {
+    return getAllCatPaths().filter(c => !c.includes("/"));
+}
+function directChildCats(p) {
+    return getAllCatPaths().filter(c => c.startsWith(p + "/") && !c.substring(p.length + 1).includes("/"));
+}
+// 某节点是否显示为“勾选”：自身/祖先在 filters；或其所有直接子级都已勾选（文件夹式父级呈勾选）
+function isCatPathChecked(c, filterCats) {
+    if (!filterCats || filterCats.length === 0) return true; // 空 == 全选
+    if (filterCats.indexOf("__NONE__") >= 0) return false;   // 显式全不选
+    if (filterCats.some(f => c === f || c.startsWith(f + "/"))) return true;
+    const kids = directChildCats(c);
+    return kids.length > 0 && kids.every(k => isCatPathChecked(k, filterCats));
+}
+// 某节点是否“半选”（部分子孙勾选）
+function isCatPathIndeterminate(c, filterCats) {
+    if (!filterCats || filterCats.length === 0) return false;
+    if (isCatPathChecked(c, filterCats)) return false;
+    const kids = directChildCats(c);
+    return kids.some(k => isCatPathChecked(k, filterCats) || isCatPathIndeterminate(k, filterCats));
+}
+// 把 filters 显式化：哨兵__NONE__ -> 真·全不选(保留哨兵)；空 -> 勾选所有根；有值 -> 原样返回副本
+function normalizeFiltersForEdit() {
+    let f = db.settings.todoCatFilters || [];
+    if (f.indexOf("__NONE__") >= 0) return [];            // 当前是全不选，编辑基线为空数组
+    if (f.length === 0) return allRootCatPaths();         // 当前是“空=全选”，展开成所有根
+    return f.slice();
+}
 function updateTodoCatFilter(targetCat, isChecked) {
-    let filters = [...db.settings.todoCatFilters];
-    
+    // 先归一化：去掉哨兵并把“空=全选”展开成显式根集合，保证编辑基于真实数组
+    let filters = normalizeFiltersForEdit();
+    // 勾选态：把哨兵状态下的“全选可见”也作为基线（若用户从全不选直接点勾）
+    const nowChecked = (db.settings.todoCatFilters || []).indexOf("__NONE__") >= 0 ? false
+                        : isCatPathChecked(targetCat, (db.settings.todoCatFilters && db.settings.todoCatFilters.length===0) ? allRootCatPaths() : (db.settings.todoCatFilters||[]));
+
     if (isChecked) {
-        if (!filters.includes(targetCat)) filters.push(targetCat);
+        // 完整勾上 targetCat 子树：清除与子树重叠或互为祖先/子孙的零散条目，再放入 targetCat
+        filters = filters.filter(f => !(f === targetCat || f.startsWith(targetCat + "/") || targetCat.startsWith(f + "/")));
+        if (filters.indexOf(targetCat) < 0) filters.push(targetCat);
     } else {
-        // 如果取消某个分类，检查是否有它的祖先在过滤列表里
-        let ancestor = filters.find(f => targetCat.startsWith(f + "/"));
-        if (ancestor) {
-            // 将祖先拆解，移除祖先
-            filters = filters.filter(f => f !== ancestor);
-            // 保留祖先自身的直属事项
-            if (!filters.includes(ancestor)) filters.push(ancestor);
-            
-            // 把祖先的其他子级加进去，防止祖先在匹配时直接覆盖所有子级
-            const allPathsSet = new Set();
-            db.events.forEach(ev => {
-                if(!ev.cat) ev.cat = "未分类";
-                const parts = ev.cat.split("/").filter(Boolean);
-                let path = "";
-                parts.forEach(p => {
-                    path = path ? path + "/" + p : p;
-                    allPathsSet.add(path);
-                });
-            });
-            const children = Array.from(allPathsSet).filter(c => c.startsWith(ancestor + "/") && !c.substring(ancestor.length + 1).includes("/"));
-            children.forEach(child => {
-                if (child !== targetCat && !targetCat.startsWith(child + "/")) {
-                    if (!filters.includes(child)) filters.push(child);
-                }
-            });
+        // 只取消 targetCat 及其子树，兄弟/其他不受影响
+        filters = filters.filter(f => !(f === targetCat || f.startsWith(targetCat + "/")));
+        // 若 targetCat 因某祖先整体被勾而处于勾选态，则沿路径“拆开”该祖先：
+        // 沿途各级除 targetCat 分支外的兄弟子树重新加回，使其保持勾选，targetCat 分支不再被连带。
+        const anc = filters.filter(f => targetCat.startsWith(f + "/")).sort((a,b)=>b.length-a.length)[0];
+        if (anc) {
+            filters = filters.filter(f => f !== anc);
+            let cur = anc;
+            while (cur !== targetCat) {
+                const rel = targetCat.substring(cur.length + 1);
+                const slash = rel.indexOf("/");
+                const next = slash < 0 ? targetCat : (cur + "/" + rel.substring(0, slash));
+                directChildCats(cur).forEach(k => { if (k !== next && filters.indexOf(k) < 0) filters.push(k); });
+                cur = next;
+            }
         }
-        
-        // 移除目标和它的子级
-        filters = filters.filter(f => f !== targetCat && !f.startsWith(targetCat + "/"));
     }
-    db.settings.todoCatFilters = filters;
+    db.settings.todoCatFilters = Array.from(new Set(filters));
 }
 
 function renderCatFilterDropdown() {
   const dropdown = document.getElementById("catFilterList");
   dropdown.innerHTML = "";
   
-  const allPaths = new Set();
-  db.events.forEach(ev => {
-    if(!ev.cat) ev.cat = "未分类";
-    const parts = ev.cat.split("/").filter(Boolean);
-    let path = "";
-    parts.forEach(p => {
-      path = path ? path + "/" + p : p;
-      allPaths.add(path);
-    });
-  });
-  
-  const cats = Array.from(allPaths).sort();
+  const cats = getAllCatPaths().sort();
 
   cats.forEach(c => {
     const div = document.createElement("label");
     div.className = "cat-filter-item";
     
-    const isChecked = db.settings.todoCatFilters.some(f => c === f || c.startsWith(f + "/"));
+    const isChecked = isCatPathChecked(c, db.settings.todoCatFilters);
+    const isIndet = isCatPathIndeterminate(c, db.settings.todoCatFilters);
     
     div.innerHTML = `<input type="checkbox" value="${c}" ${isChecked ? 'checked' : ''}> <span style="font-size:12px; word-break:break-all;">${c}</span>`;
+    const cb = div.querySelector('input');
+    cb.indeterminate = isIndet;
     
     div.querySelector('input').onchange = (e) => {
       updateTodoCatFilter(c, e.target.checked);
@@ -1295,17 +1537,11 @@ function getFilteredTasksForDate(targetViewDateStr) {
     if (!isForView) return;
 
     if (filterCats.length > 0) {
+      // 显式全不选：不显示任何事项
+      if (filterCats.indexOf("__NONE__") >= 0) return;
       const evCat = ev.cat || "未分类";
-      const matched = filterCats.some(f => {
-          if (evCat === f) return true;
-          if (evCat.startsWith(f + "/")) {
-              // 如果 filters 里有比 f 更深的子孙，说明 f 被拆解了，那么 f 不匹配更深层的子级
-              const isSplit = filterCats.some(other => other.startsWith(f + "/"));
-              if (isSplit) return false;
-              return true;
-          }
-          return false;
-      });
+      // 纯子树匹配：filters 里某项等于该分类或其祖先分类即命中
+      const matched = filterCats.some(f => f !== "__NONE__" && (evCat === f || evCat.startsWith(f + "/")));
       if (!matched) return;
     }
 
@@ -1368,18 +1604,16 @@ function applySchedule() {
 
     if (!toSchedule.length) return showToast("选中的事项均已有排期时间");
 
+    // 排期聚类：完全按分类抱团，忽略象限——同一路径（同一游戏/同一子分类）的事项相邻，
+    // 再把“未分类”排到最后，同级按名称稳定排序。这样“无限暖暖”的清体力/清日常/清家园
+    // 会连续排布，不会被象限优先级打散成不同游戏交错。
     toSchedule.sort((a, b) => {
-        const qa = a.quad ?? 2;
-        const qb = b.quad ?? 2;
-        if (qa === 0) return 1;
-        if (qb === 0) return -1;
-        if (qa !== qb) return qa - qb;
-        
-        // 象限相同，尽量按大分类聚类
-        const catA = a.cat.split("/")[0];
-        const catB = b.cat.split("/")[0];
-        if (catA !== catB) return catA.localeCompare(catB);
-        return a.cat.localeCompare(b.cat);
+        const fullA = (a.cat || "未分类").trim();
+        const fullB = (b.cat || "未分类").trim();
+        const unA = fullA === "未分类", unB = fullB === "未分类";
+        if (unA !== unB) return unA ? 1 : -1;     // 未分类沉底
+        if (fullA !== fullB) return fullA.localeCompare(fullB, "zh");
+        return (a.name || "").localeCompare(b.name || "", "zh");
     });
 
     let occupiedIntervals = [];
@@ -1396,9 +1630,16 @@ function applySchedule() {
 
     let startTime = isToday ? Date.now() : new Date(viewDateStr + 'T00:00:00').getTime();
     
-    function findSlot(duration, isMustFinish) {
+    function findSlot(duration, isMustFinish, ev) {
         let cursor = startTime;
         while (true) {
+            if (ev) {
+                let forbHit = false;
+                for (const iv of avoidIntervalsForDate(ev, viewDateStr)) {
+                    if (cursor < iv[1] && cursor + duration > iv[0]) { cursor = iv[1]; forbHit = true; break; }
+                }
+                if (forbHit) continue;
+            }
             if (!isMustFinish) {
                 let d = new Date(cursor);
                 if (d.getHours() >= 23 || d.getHours() < 7) {
@@ -1428,12 +1669,36 @@ function applySchedule() {
         return cursor;
     }
 
-    toSchedule.forEach(t => {
+    const dayStartMs = new Date(viewDateStr + 'T00:00:00').getTime();
+    const schedList = toSchedule.filter(t => !t.dailyFixed); // 每日固定项已自动铺排，跳过
+
+    const deadlineItems = [];
+    const normalItems = [];
+    schedList.forEach(t => { (getDeadlineEndMs(t, viewDateStr) != null ? deadlineItems : normalItems).push(t); });
+
+    // 1) 有截止(每日截止/当日限时)的事项：从截止线倒排，长的贴线、短的在前(先做简单项)
+    const dGroups = {};
+    deadlineItems.forEach(t => { const de = getDeadlineEndMs(t, viewDateStr); (dGroups[de] = dGroups[de] || []).push(t); });
+    Object.keys(dGroups).map(Number).forEach(de => {
+        const items = dGroups[de].slice().sort((a, b) => (b.est || 30) - (a.est || 30));
+        items.forEach(t => {
+            const dur = (t.est || 30) * 60000;
+            const forbidden = avoidIntervalsForDate(t, viewDateStr);
+            const placed = placeBefore(de, dur, dayStartMs, occupiedIntervals, forbidden);
+            const st = placed ? placed.start : findSlot(dur, true, t);
+            const en = placed ? placed.end : (st + dur);
+            t.actionDateTime = formatDatetimeLocal(new Date(st));
+            occupiedIntervals.push({ start: st, end: en });
+            occupiedIntervals.sort((a, b) => a.start - b.start);
+        });
+    });
+
+    // 2) 无截止事项：顺序找空槽(避开睡眠与避让时段)
+    normalItems.forEach(t => {
         const duration = (t.est || 30) * 60000;
         const isMustFinish = (t.freq === '每日' || t.freq === '限时' || t.dayBoundary);
-        const slot = findSlot(duration, isMustFinish);
+        const slot = findSlot(duration, isMustFinish, t);
         t.actionDateTime = formatDatetimeLocal(new Date(slot));
-        
         occupiedIntervals.push({ start: slot, end: slot + duration });
         occupiedIntervals.sort((a,b) => a.start - b.start);
     });
@@ -1482,6 +1747,8 @@ function renderTodos(){
     else if (isSkipped) div.classList.add("skipped");
     
     let deadlineText = "";
+    if(ev.dailyFixed) deadlineText += ` <span class="badge" style="background:#dcfce7;color:#15803d;">📌固定${ev.dailyFixed}</span>`;
+    if(ev.dailyDeadline) deadlineText += ` <span class="badge" style="background:#fee2e2;color:#b91c1c;">⏰止${ev.dailyDeadline}</span>`;
     let isExpired = false;
     if(ev.deadline && !isDone && !isSkipped){
       const diff = new Date(ev.deadline).getTime() - Date.now();
@@ -1575,7 +1842,9 @@ function renderTodos(){
         scheduleBtn.onclick = () => {
             const hasPlan = ev.actionDateTime && ev.actionDateTime.startsWith(viewDateStr);
             if (hasPlan) {
+                // 已排期：直接清空时间，并把它从已选池彻底移除，取消高亮
                 ev.actionDateTime = "";
+                db.settings.scheduledIds = db.settings.scheduledIds.filter(id => id !== ev.id);
                 saveDB(); renderTodos(); renderAxis(); recalcLoad();
                 showToast("已取消该事项的排期");
             } else {
@@ -1621,10 +1890,19 @@ function toggleSkip(evId, targetDateStr) {
     pushUndo("划掉");
     if (!db.skippedEvents[evId]) db.skippedEvents[evId] = [];
     db.skippedEvents[evId].push(targetDateStr);
+    // 划掉时若该事项已排期，自动清空排期时间并移出已选池，释放时间轴空间
+    if (ev.actionDateTime && ev.actionDateTime.startsWith(targetDateStr)) {
+        ev.actionDateTime = "";
+        if (db.settings.scheduledIds.includes(evId)) {
+            db.settings.scheduledIds = db.settings.scheduledIds.filter(id => id !== evId);
+        }
+    }
   }
   
   saveDB();
   renderTodos();
+  renderAxis();
+  recalcLoad();
 }
 
 function toggleDone(evId, targetDateStr, isExpired = false){
@@ -1758,6 +2036,7 @@ function toggleDone(evId, targetDateStr, isExpired = false){
   renderAxis();
   renderStats();
   renderGlobalTimers();
+  recalcLoad();
 }
 
 function archiveAllExpired() {
@@ -1973,6 +2252,20 @@ function renderAxis(){
       }
   });
   
+  // 每日固定事项：按规则(或当天微调)在时间轴生成固定块
+  db.events.forEach(ev => {
+      if(!ev.dailyFixed || ev.isArchived) return;
+      if(isEventDoneForDate(ev, targetDateStr) || isEventSkippedForDate(ev.id, targetDateStr)) return;
+      const dayStartMs = new Date(targetDateStr + 'T00:00:00').getTime();
+      let sMin = -1;
+      const ov = (ev.fixedOverride && ev.fixedOverride[targetDateStr]);
+      if(ov && hhmmToMin(ov) >= 0) sMin = hhmmToMin(ov); else sMin = hhmmToMin(ev.dailyFixed);
+      if(sMin < 0) return;
+      const st = dayStartMs + sMin * 60000, et = st + (ev.est || 30) * 60000;
+      plannedEvents.push({ type:'planned', fixed:true, id:ev.id, title:'📌 ' + ev.name,
+          cat:(ev.cat || "未分类").split("/").pop(), startMs:st, endMs:et });
+  });
+
   plannedEvents.sort((a, b) => a.startMs - b.startMs);
   
   const occupiedIntervals = actualEvents.map(e => [e.startMs, e.endMs]).sort((a,b)=>a[0]-b[0]);
@@ -2100,14 +2393,50 @@ function renderAxis(){
       
       block.innerHTML = html;
       
+      if(ev.type !== 'actual'){
+          const fev = db.events.find(e => e.id === ev.id);
+          if(fev && isSlotForbidden(fev, ev.startMs, ev.endMs - ev.startMs, targetDateStr)){
+              block.style.border = '2px solid #dc2626';
+              block.style.boxShadow = '0 0 0 2px rgba(220,38,38,.35)';
+          }
+      }
       block.onclick = () => {
           if(ev.type === 'actual') openAxisEditModal(ev.id);
+          else if(ev.fixed) adjustFixedBlock(ev.id, targetDateStr);
           else openEditModal(ev.id);
       };
       
       grid.appendChild(block);
   });
   
+  // 避让时段遮罩（当日生效规则，按分类标注）
+  getAvoidRules().forEach(r => {
+      if(!ruleActiveOnDay(r, targetDateStr)) return;
+      const sm = hhmmToMin(r.start), em = hhmmToMin(r.end); if(sm<0||em<0) return;
+      const segs = (sm<em) ? [[sm,em]] : [[sm,1440],[0,em]];
+      segs.forEach(sg=>{
+          const band = document.createElement("div");
+          band.style.cssText = `position:absolute;left:0;right:0;top:${sg[0]*currentAxisScale}px;height:${(sg[1]-sg[0])*currentAxisScale}px;background:repeating-linear-gradient(45deg,rgba(239,68,68,.07),rgba(239,68,68,.07) 8px,rgba(239,68,68,.16) 8px,rgba(239,68,68,.16) 16px);pointer-events:none;z-index:1;`;
+          const lbl = document.createElement("div");
+          lbl.style.cssText = "position:absolute;left:2px;top:1px;font-size:10px;color:#dc2626;white-space:nowrap;";
+          lbl.textContent = "⛔" + (r.scope==="event"?((db.events.find(e=>e.id===r.target)||{}).name||""):r.target) + " " + r.start + "-" + r.end;
+          band.appendChild(lbl);
+          grid.appendChild(band);
+      });
+  });
+  // 每日截止线（红色虚线）
+  const dlSet = {};
+  db.events.forEach(ev => { if(ev.dailyDeadline && !ev.isArchived){ const m=hhmmToMin(ev.dailyDeadline); if(m>=0) dlSet[m]=true; } });
+  Object.keys(dlSet).map(Number).forEach(m => {
+      const line = document.createElement("div");
+      line.style.cssText = `position:absolute;left:0;right:0;top:${m*currentAxisScale}px;border-top:2px dashed #dc2626;pointer-events:none;z-index:6;`;
+      const tag = document.createElement("div");
+      tag.style.cssText = "position:absolute;right:4px;top:-14px;font-size:11px;color:#dc2626;font-weight:bold;";
+      tag.textContent = "⏰截止 " + String(Math.floor(m/60)).padStart(2,"0") + ":" + String(m%60).padStart(2,"0");
+      line.appendChild(tag);
+      grid.appendChild(line);
+  });
+
   if (targetDateStr === todayStr() && scrollRatio === 0) {
       const now = new Date();
       const currentMin = now.getHours() * 60 + now.getMinutes();
@@ -2119,6 +2448,8 @@ function renderAxis(){
 
 /* ================= 补录与时间轴编辑 ================= */
 function openAxisAddModal(){
+  const r = document.querySelector('input[name="axisAddMode"][value="record"]');
+  if (r) r.checked = true;
   const datalist = document.getElementById("allEventsListAdd");
   let options = db.events.map(e => `<option value="${e.name}">`).join("");
   options += db.categories.map(c => `<option value="${c}">`).join("");
@@ -2158,18 +2489,53 @@ function togglePin(modal, field) {
     else el.classList.remove("active");
 }
 
+function onAxisAddModeChange(){}
+
 function saveAxisAdd(){
   const name = document.getElementById("addAxisEvName").value.trim();
   const startStr = document.getElementById("addAxisTimeStart").value;
   const endStr = document.getElementById("addAxisTimeEnd").value;
   const dur = Number(document.getElementById("addAxisDur").value);
+  const mode = (document.querySelector('input[name="axisAddMode"]:checked') || {value:"record"}).value;
   
-  if(!name || !startStr || !endStr || isNaN(dur)) return alert("请完整填写名称、开始时间、结束时间和耗时");
+  if(!name || !startStr || !endStr) return alert("请完整填写名称、开始时间和结束时间");
   
   const st = new Date(startStr);
   const et = new Date(endStr);
   
   if (et < st) return alert("结束时间不能早于开始时间");
+  
+  // 模式=添加计划：直接写入该事项的 actionDateTime，在时间轴生成灰色虚线占位
+  if (mode === "plan") {
+    const durMin = Math.max(1, Math.round((et - st) / 60000));
+    pushUndo("添加计划");
+    let planEv = db.events.find(e => e.name === name);
+    let cat;                                   // 声明在分支外，避免作用域越界导致 ReferenceError
+    if (planEv) {
+      cat = (planEv.cat || "未分类");          // 已有事项：沿用其分类
+    } else if (db.categories.includes(name)) {
+      // 名称是已有分类：在该分类下新建一个以末级命名的长期事项作为计划载体
+      cat = name;
+      const newName = name.includes("/") ? name.split("/").pop() : name;
+      planEv = { id: "evt_" + Date.now(), cat: cat, name: newName, freq: "长期", quad: 2, est: durMin, deadline: "", note: "", actionDateTime: "", isArchived: false, isPinned: false };
+      db.events.push(planEv);
+    } else {
+      // 名称既不是已有事项也不是已有分类 -> 作为新建事项的计划
+      const newName = name.includes("/") ? name.split("/").pop() : name;
+      cat = name.includes("/") ? name.split("/").map(s => s.trim()).filter(Boolean).join("/") : "未分类";
+      planEv = { id: "evt_" + Date.now(), cat: cat, name: newName, freq: "长期", quad: 2, est: durMin, deadline: "", note: "", actionDateTime: "", isArchived: false, isPinned: false };
+      db.events.push(planEv);
+    }
+    planEv.actionDateTime = startStr;
+    planEv.est = durMin;
+    if (cat && !db.categories.includes(cat)) db.categories.push(cat);
+    saveDB(); closeAxisAddModal(); renderAxis(); renderTodos(); recalcLoad();
+    showToast("✅ 已添加未来计划");
+    return;
+  }
+  
+  // 模式=补录：原有逻辑
+  if (isNaN(dur)) return alert("请填写耗时");
   
   pushUndo("补录时间轴");
   
@@ -2277,6 +2643,10 @@ function openEditModal(evId){
   document.getElementById("editDeadline").value = ev.deadline || "";
   document.getElementById("editDayBoundary").value = ev.dayBoundary || "";
   document.getElementById("editActionDateTime").value = ev.actionDateTime || "";
+  document.getElementById("editDailyDeadlineChk").checked = !!ev.dailyDeadline;
+  document.getElementById("editDailyDeadline").value = ev.dailyDeadline || "23:59";
+  document.getElementById("editDailyFixedChk").checked = !!ev.dailyFixed;
+  document.getElementById("editDailyFixed").value = ev.dailyFixed || "09:00";
   document.getElementById("editEst").value = ev.est || 30;
   document.getElementById("editNote").value = ev.note || "";
   document.getElementById("editArchived").checked = !!ev.isArchived;
@@ -2294,6 +2664,8 @@ function saveEdit(){
   const est = +document.getElementById("editEst").value;
   const deadline = document.getElementById("editDeadline").value || "";
   const dayBoundary = document.getElementById("editDayBoundary").value || "";
+  const dailyDeadline = document.getElementById("editDailyDeadlineChk").checked ? (document.getElementById("editDailyDeadline").value || "") : "";
+  const dailyFixed = document.getElementById("editDailyFixedChk").checked ? (document.getElementById("editDailyFixed").value || "") : "";
   const note = document.getElementById("editNote").value;
   const isArchived = document.getElementById("editArchived").checked;
   const isPinned = document.getElementById("editPinned").checked;
@@ -2303,12 +2675,12 @@ function saveEdit(){
   if (isNewEventMode) {
     pushUndo("新增事项");
     targetId = "ID_" + Date.now().toString();
-    db.events.push({ id: targetId, cat, name, freq, deadline, actionDateTime, est, quad, note, isArchived, dayBoundary, isPinned });
+    db.events.push({ id: targetId, cat, name, freq, deadline, actionDateTime, est, quad, note, isArchived, dayBoundary, isPinned, dailyDeadline, dailyFixed, fixedOverride: {} });
   } else {
     const ev = db.events.find(e => e.id === currentEditEventId); if(!ev) return;
     pushUndo("编辑事项");
     ev.name = name; ev.cat = cat; ev.freq = freq; ev.quad = quad;
-    ev.actionDateTime = actionDateTime; ev.est = est; ev.deadline = deadline; ev.note = note; ev.isArchived = isArchived; ev.dayBoundary = dayBoundary; ev.isPinned = isPinned;
+    ev.actionDateTime = actionDateTime; ev.est = est; ev.deadline = deadline; ev.note = note; ev.isArchived = isArchived; ev.dayBoundary = dayBoundary; ev.isPinned = isPinned; ev.dailyDeadline = dailyDeadline; ev.dailyFixed = dailyFixed; if(!ev.fixedOverride) ev.fixedOverride = {};
   }
   saveDB(); renderCatTree(); renderTodos(); renderAxis(); renderPinnedArea(); closeEditModal();
   
