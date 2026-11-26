@@ -178,7 +178,7 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 }
 
 .pinned-wrap { background: #fff; border-radius: 12px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 6px #00000008; display: flex; gap: 8px; align-items: flex-start; }
-.pinned-mode-btn { padding: 8px 12px; background: #409c94; color: white; border: none; border-radius: 8px; cursor: pointer; flex-shrink: 0; font-size: 16px; align-self: stretch; display: inline-flex; align-items: center; justify-content: center; }
+.pinned-mode-btn { padding: 8px 12px; background: #409c94; color: white; border: none; border-radius: 8px; cursor: pointer; flex-shrink: 0; font-size: 16px; align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; }
 .pinned-list { flex: 1; display: flex; gap: 8px; overflow-x: auto; white-space: nowrap; min-height: 36px; align-items: center; }
 .pinned-list.vertical { flex-direction: column; overflow-x: hidden; overflow-y: auto; max-height: 260px; white-space: normal; align-items: stretch; }
 .pinned-chip { display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 6px 12px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; flex-shrink: 0;}
@@ -189,6 +189,17 @@ button.icon-btn{padding:6px;font-size:14px;border-radius:6px;width:28px;height:2
 .combo-dur { font-size: 11px; color: #64748b; flex-shrink: 0; }
 .combo-pin-btn { padding: 4px 6px; background: transparent; border: none; cursor: pointer; font-size: 14px; flex-shrink: 0; }
 .combo-launch-btn { padding: 4px 8px; background: #409c94; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+.combo-tools { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.combo-tool-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: #409c94; color: #fff; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.combo-tool-btn:hover { background: #357f79; }
+.combo-box { flex: 1; min-width: 0; overflow-y: auto; max-height: 260px; }
+.cbtn { border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; padding: 2px 8px; font-size: 12px; line-height: 1.5; color: #334155; }
+.cbtn:hover { background: #f1f5f9; }
+.cbtn-move { color: #334155; }
+.cbtn-del { color: #dc2626; border-color: #fecaca; }
+.cbtn-pin { color: #64748b; }
+.cbtn-pin.on { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+.cbtn-add { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
 
 .done-btn { color: #10b981; background: #ecfdf5; }
 .skip-btn { color: #64748b; background: #f1f5f9; }
@@ -243,9 +254,14 @@ details p { margin: 8px 0 0 0; line-height: 1.5; }
 
 <div class="panel active" id="timer">
 <div class="pinned-wrap" id="pinnedWrap" style="display:none">
-  <button class="pinned-mode-btn" id="pinnedToggleBtn" onclick="togglePinnedView()" title="切换常用/组合">
-    <span id="pinnedModeIcon">⧉</span>
-  </button>
+  <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+    <button class="pinned-mode-btn" id="pinnedToggleBtn" onclick="togglePinnedView()" title="切换常用/组合">
+      <span id="pinnedModeIcon">☆</span>
+    </button>
+    <button class="pinned-mode-btn" id="comboEditBtn" onclick="openComboEditor()" title="管理组合" style="display:none;background:#f59e0b;">
+      ⚙
+    </button>
+  </div>
   <div class="pinned-list" id="pinnedList"></div>
 </div>
 <div class="batch-bar">
@@ -2570,18 +2586,41 @@ function renderAxis(){
   });
   
   // (已按需求移除) 时间轴上不再绘制整片避让遮罩带；违规仅在具体块上标红+角标提示
-  // 每日截止线（红色虚线）
-  const dlSet = {};
-  db.events.forEach(ev => { if(ev.dailyDeadline && !ev.isArchived){ const m=hhmmToMin(ev.dailyDeadline); if(m>=0) dlSet[m]=true; } });
-  Object.keys(dlSet).map(Number).forEach(m => {
+  // 每日截止线：单条线（所有每日截止事项中最晚时刻）+ 最晚开始时刻 + 双🔔展开多选启动
+  (function renderDeadlineLine(){
+      const dlEvents = db.events.filter(ev => ev.dailyDeadline && !ev.isArchived)
+          .map(ev => ({ ev: ev, m: hhmmToMin(ev.dailyDeadline) }))
+          .filter(x => x.m >= 0);
+      if(!dlEvents.length) return;
+      const latestM = Math.max.apply(null, dlEvents.map(x => x.m));
+      const fmt = mm => String(Math.floor(mm/60)).padStart(2,"0") + ":" + String(mm%60).padStart(2,"0");
+      const totalEst = dlEvents.reduce((s,x) => s + (x.ev.est||0), 0);
+      const latestStartM = latestM - totalEst;
+
+      function makeTag(text, dy){
+          const tag = document.createElement("div");
+          tag.style.cssText = "position:absolute;right:6px;top:"+dy+"px;font-size:11px;color:#dc2626;font-weight:bold;display:flex;align-items:center;gap:5px;pointer-events:auto;";
+          const sp = document.createElement("span"); sp.textContent = text; tag.appendChild(sp);
+          const bell = document.createElement("span"); bell.textContent = "🔔";
+          bell.title = "查看该截止时刻的事项并快速开始计时";
+          bell.style.cursor = "pointer";
+          bell.onclick = function(e){ e.stopPropagation(); openDeadlineBellPopup(); };
+          tag.appendChild(bell);
+          return tag;
+      }
+
       const line = document.createElement("div");
-      line.style.cssText = `position:absolute;left:0;right:0;top:${m*currentAxisScale}px;border-top:2px dashed #dc2626;pointer-events:none;z-index:6;`;
-      const tag = document.createElement("div");
-      tag.style.cssText = "position:absolute;right:4px;top:-14px;font-size:11px;color:#dc2626;font-weight:bold;";
-      tag.textContent = "⏰截止 " + String(Math.floor(m/60)).padStart(2,"0") + ":" + String(m%60).padStart(2,"0");
-      line.appendChild(tag);
+      line.style.cssText = `position:absolute;left:0;right:0;top:${latestM*currentAxisScale}px;border-top:2px dashed #dc2626;pointer-events:none;z-index:6;`;
+      line.appendChild(makeTag("⏰ 截止 " + fmt(latestM), -30));
       grid.appendChild(line);
-  });
+
+      if(latestStartM >= 0){
+          const sline = document.createElement("div");
+          sline.style.cssText = `position:absolute;left:0;right:0;top:${latestStartM*currentAxisScale}px;border-top:2px dashed #f59e0b;pointer-events:none;z-index:6;`;
+          sline.appendChild(makeTag("⏳ 最晚 " + fmt(latestStartM) + " 开始", -30));
+          grid.appendChild(sline);
+      }
+  })();
 
   if (targetDateStr === todayStr() && scrollRatio === 0) {
       const now = new Date();
@@ -3271,34 +3310,43 @@ function launchCombo(comboKey) {
 function renderPinnedArea() {
   const wrap = document.getElementById("pinnedWrap");
   const btn = document.getElementById("pinnedToggleBtn");
+  const comboEditBtn = document.getElementById("comboEditBtn");
   const list = document.getElementById("pinnedList");
   const icon = document.getElementById("pinnedModeIcon");
   
   if (!wrap || !list) return;
   
   const pinned = db.events.filter(e => e.isPinned && !e.isArchived);
-  const topCombos = computeTopCombos(8);
-  const pinnedKeys = db.settings.pinnedCombos || [];
-  const hasCombos = topCombos.length > 0 || pinnedKeys.length > 0;
-  
-  if (currentPinnedMode === 'combo' && !hasCombos) currentPinnedMode = 'pinned';
-  
+  if (!Array.isArray(db.combos)) db.combos = [];
+  const hasCombos = db.combos.length > 0;
+
   if (!pinned.length && !hasCombos) {
     wrap.style.display = "none";
     return;
   }
   wrap.style.display = "flex";
-  
-  btn.style.display = hasCombos ? "inline-flex" : "none";
-  icon.innerText = currentPinnedMode === 'combo' ? "★" : "⧉";
+
+  btn.style.display = "inline-flex";
+  // 常用模式图标=☆(点击去组合)；组合模式图标=⧉(点击回常用)
+  icon.innerText = currentPinnedMode === 'combo' ? "⧉" : "☆";
   btn.title = currentPinnedMode === 'combo' ? "切回常用" : "切到组合";
+
+  // 组合模式下显示"管理组合"按钮（⚙），常用模式隐藏
+  if (comboEditBtn) {
+    comboEditBtn.style.display = (currentPinnedMode === 'combo') ? "inline-flex" : "none";
+  }
   
   list.innerHTML = "";
   list.className = "pinned-list";
+  list.style.flexDirection = "";
+  list.style.alignItems = "";
+  list.style.whiteSpace = "";
   
   if (currentPinnedMode === 'pinned') {
     if (!pinned.length) {
-      wrap.style.display = "none";
+      // 没有常用但有组合时，不隐藏整个 wrap，否则用户进不去组合
+      if (!hasCombos) { wrap.style.display = "none"; return; }
+      list.innerHTML = '<div class="meta-small" style="padding:8px;">暂无常用事项，点左侧图标切到组合。</div>';
       return;
     }
     pinned.forEach(ev => {
@@ -3318,7 +3366,7 @@ function renderPinnedArea() {
     });
   } else {
     list.classList.add("vertical");
-    renderComboList(list, topCombos, pinnedKeys);
+    renderManualCombos(list);
   }
 }
 
@@ -4172,6 +4220,333 @@ loadDB();
 document.getElementById("axisDate").value = todayStr(); 
 document.getElementById("statDate").value = todayStr();
 renderAll();
+
+/* ==================== 并发组合（手动维护·极简版）+ 截止线浮层 ==================== */
+function mkOverlay(){
+  const mask=document.createElement("div");
+  mask.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  const box=document.createElement("div");
+  box.style.cssText="background:#fff;border-radius:14px;width:min(560px,96vw);max-height:88vh;overflow:auto;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);";
+  mask.appendChild(box);
+  return {mask:mask, box:box};
+}
+function _comboEvName(id){ const e=db.events.find(x=>x.id===id); return e?e.name:"(已删除)"; }
+
+function renderManualCombos(list){
+  if(!Array.isArray(db.combos)) db.combos=[];
+  const sorted = db.combos.slice().sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0));
+  list.style.flexDirection = "column";
+  list.style.alignItems = "stretch";
+  list.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "combo-box";
+  box.style.width = "100%";
+  if(!sorted.length){
+    box.innerHTML = '<div style="color:#94a3b8;font-size:12px;padding:8px 4px;">还没有组合，点左侧 ⚙ 新建。</div>';
+  } else {
+    sorted.forEach(c => {
+      const names = (c.todoIds || []).map(id => _comboEvName(id));
+      const row = document.createElement("div");
+      row.className = "combo-row";
+      const nm = document.createElement("span");
+      nm.className = "combo-names";
+      nm.innerHTML = (c.pinned ? '⭐ ' : '') + (names.length ? escHtml(names.join(" + ")) : "（空组合）");
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "combo-launch-btn";
+      go.title = "启动该组合计时";
+      go.textContent = "▶";
+      go.onclick = function(e){ e.stopPropagation(); launchComboById(c.id); };
+      row.appendChild(nm);
+      row.appendChild(go);
+      box.appendChild(row);
+    });
+  }
+  list.appendChild(box);
+}
+function launchComboById(id){
+  const c = db.combos.find(x => x.id === id);
+  if(!c){ showToast("组合不存在"); return; }
+  const ids = c.todoIds || [];
+  if(!ids.length){ showToast("该组合暂无事项，请先编辑添加"); return; }
+  const todayDateStr = todayStr();
+  let started = 0;
+  const reasons = { missing:0, archived:0, running:0, done:0, skipped:0 };
+  ids.forEach(function(eid){
+    const ev = db.events.find(e => e.id === eid);
+    if(!ev){ reasons.missing++; return; }
+    if(ev.isArchived){ reasons.archived++; return; }
+    if(Object.values(db.timers).find(t => t.eventId === eid)){ reasons.running++; return; }
+    if(isEventDoneForDate(ev, todayDateStr)){ reasons.done++; return; }
+    if(isEventSkippedForDate(eid, todayDateStr)){ reasons.skipped++; return; }
+    const tid = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 6);
+    db.timers[tid] = { tid, eventId: eid, startAt: Date.now() };
+    db.pausedTimers = (db.pausedTimers || []).filter(x => x !== eid);
+    started++;
+  });
+  saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree();
+  if(started > 0){
+    showToast("已启动 " + started + " 个计时");
+  } else {
+    const parts = [];
+    if(reasons.running) parts.push(reasons.running + " 项计时中");
+    if(reasons.done) parts.push(reasons.done + " 项已完成");
+    if(reasons.skipped) parts.push(reasons.skipped + " 项已跳过");
+    if(reasons.archived) parts.push(reasons.archived + " 项已归档");
+    if(reasons.missing) parts.push(reasons.missing + " 项已删除");
+    showToast("无可启动事项" + (parts.length ? "（" + parts.join("，") + "）" : ""));
+  }
+}
+
+function openComboEditor(autoNew){
+  if(!Array.isArray(db.combos)) db.combos=[];
+  // ★ 关键修复：必须是 let，后面有 draft = ... 的重新赋值
+  let draft = JSON.parse(JSON.stringify(db.combos.map(c => ({ id:c.id, todoIds:(c.todoIds||[]).slice(), pinned:!!c.pinned }))));
+  if(autoNew){ draft.push({ id:"cmb_"+Date.now()+Math.random().toString(36).slice(2,5), todoIds:[], pinned:false }); }
+  const ov = mkOverlay(); const box = ov.box;
+  document.body.appendChild(ov.mask);
+  ov.mask.addEventListener("click", function(e){ if(e.target === ov.mask) ov.mask.remove(); });
+
+  function ordered(){ return draft.slice().sort((a,b) => (b.pinned?1:0) - (a.pinned?1:0)); }
+  function findC(id){ return draft.find(c => c.id === id); }
+
+  // 成员只显示名字 + 移除按钮（不再有上移/下移）
+  function memChips(c){
+    if(!c.todoIds.length) return '<span style="color:#94a3b8;font-size:12px;">未选事项</span>';
+    return c.todoIds.map(function(id, idx){
+      return '<span style="display:inline-flex;align-items:center;gap:3px;background:#f1f5f9;border-radius:6px;padding:3px 6px;font-size:12px;">' +
+        escHtml(_comboEvName(id)) +
+        '<button type="button" class="cbtn cbtn-del" data-cid="'+c.id+'" data-idx="'+idx+'" data-act="memdel" title="移除">✕</button>' +
+      '</span>';
+    }).join("");
+  }
+  function card(c){
+    const pin = c.pinned
+      ? '<button type="button" class="cbtn cbtn-pin on" data-cid="'+c.id+'" data-act="pin">⭐ 置顶中</button>'
+      : '<button type="button" class="cbtn cbtn-pin" data-cid="'+c.id+'" data-act="pin">☆ 置顶</button>';
+    return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:10px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">' +
+        '<button type="button" class="cbtn cbtn-move" data-cid="'+c.id+'" data-act="moveup" title="上移组合">⬆</button>' +
+        '<button type="button" class="cbtn cbtn-move" data-cid="'+c.id+'" data-act="movedown" title="下移组合">⬇</button>' +
+        pin +
+        '<span style="flex:1;"></span>' +
+        '<button type="button" class="cbtn cbtn-del" data-cid="'+c.id+'" data-act="del">删除组合</button>' +
+      '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">' + memChips(c) + '</div>' +
+      '<button type="button" class="cbtn cbtn-add" data-cid="'+c.id+'" data-act="addmem">＋添加事项</button>' +
+    '</div>';
+  }
+
+  function draw(){
+    box.innerHTML =
+      '<div style="font-weight:bold;font-size:16px;margin-bottom:4px;">⚙ 编辑并发组合</div>' +
+      '<div style="color:#64748b;font-size:12px;margin-bottom:12px;">置顶的组合排在最前；成员按添加顺序显示为「事项A + 事项B」。组合内成员不支持手动排序。</div>' +
+      (draft.length ? ordered().map(card).join("") : '<div style="color:#94a3b8;padding:16px;text-align:center;">还没有组合，点下方「➕ 新建组合」。</div>') +
+      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:space-between;align-items:center;">' +
+        '<button type="button" data-act="new" style="padding:8px 14px;background:#409c94;color:#fff;border:none;border-radius:8px;cursor:pointer;">➕ 新建组合</button>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button type="button" data-act="cancel" style="padding:8px 14px;background:#fff;color:#555;border:1px solid #ccc;border-radius:8px;cursor:pointer;">取消</button>' +
+          '<button type="button" data-act="save" style="padding:8px 14px;background:#409c94;color:#fff;border:none;border-radius:8px;cursor:pointer;">保存</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  box.addEventListener("click", function(e){
+    const t = e.target.closest("[data-act]"); if(!t) return;
+    const act = t.getAttribute("data-act");
+    const cid = (act === "new") ? null : t.getAttribute("data-cid");
+
+    if(act === "new"){
+      draft.push({ id:"cmb_"+Date.now()+Math.random().toString(36).slice(2,5), todoIds:[], pinned:false });
+      draw(); return;
+    }
+    if(act === "cancel"){ ov.mask.remove(); return; }
+    if(act === "save"){
+      db.combos = draft.map(c => ({
+        id: c.id,
+        todoIds: c.todoIds.filter(id => db.events.some(x => x.id === id)),
+        pinned: !!c.pinned
+      }));
+      saveDB(); renderPinnedArea(); ov.mask.remove(); showToast("组合已保存"); return;
+    }
+
+    const c = findC(cid); if(!c) return;
+
+    if(act === "del"){ draft = draft.filter(x => x.id !== cid); draw(); return; }
+    if(act === "pin"){ c.pinned = !c.pinned; draw(); return; }
+    if(act === "addmem"){
+      openMemberPicker(c, function(newIds){
+        newIds.forEach(function(id){ if(c.todoIds.indexOf(id) < 0) c.todoIds.push(id); });
+        draw();
+      });
+      return;
+    }
+
+    const idx = parseInt(t.getAttribute("data-idx"), 10);
+    if(act === "memdel"){ c.todoIds.splice(idx, 1); draw(); return; }
+
+    if(act === "moveup" || act === "movedown"){
+      const ord = ordered();
+      const i = ord.findIndex(x => x.id === cid);
+      const j = act === "moveup" ? i - 1 : i + 1;
+      // 只允许在同一个置顶组内移动，否则会被置顶排序弹回，看起来"没生效"
+      if(j >= 0 && j < ord.length && ord[i].pinned === ord[j].pinned){
+        const tmp = ord[i]; ord[i] = ord[j]; ord[j] = tmp;
+        draft = ord;
+      }
+      draw(); return;
+    }
+  });
+  draw();
+}
+function openMemberPicker(combo, onDone){
+  const ov = mkOverlay(); ov.box.style.width = "min(520px,96vw)"; document.body.appendChild(ov.mask);
+  ov.mask.addEventListener("click", function(e){ if(e.target === ov.mask) ov.mask.remove(); });
+  let kw = "";
+  const picked = new Set();
+
+  function avail(){ return db.events.filter(e => !e.isArchived); }
+  function filtered(){
+    const k = kw.trim().toLowerCase();
+    return avail().filter(e =>
+      !k || (e.name||"").toLowerCase().indexOf(k) >= 0 || (e.cat||"").toLowerCase().indexOf(k) >= 0
+    ).slice(0, 200);
+  }
+
+  // 固定骨架：搜索框只创建一次，后面只重绘 #cbPickListWrap
+  ov.box.innerHTML =
+    '<div style="font-weight:bold;font-size:15px;margin-bottom:8px;">添加事项到该组合</div>' +
+    '<input id="cbPickKw" placeholder="搜索事项（名称/分类）" style="width:100%;padding:7px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;box-sizing:border-box;">' +
+    '<div style="display:flex;gap:8px;margin-bottom:6px;">' +
+      '<button type="button" data-act="all" style="font-size:12px;padding:4px 10px;background:#f1f5f9;border:none;border-radius:6px;cursor:pointer;">全选</button>' +
+      '<button type="button" data-act="none" style="font-size:12px;padding:4px 10px;background:#f1f5f9;border:none;border-radius:6px;cursor:pointer;">清空</button>' +
+      '<span id="cbPickCount" style="font-size:12px;color:#64748b;margin-left:auto;align-self:center;"></span>' +
+    '</div>' +
+    '<div id="cbPickListWrap" style="max-height:46vh;overflow:auto;border:1px solid #f1f5f9;border-radius:8px;"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">' +
+      '<button type="button" data-act="cancel" style="padding:8px 14px;background:#fff;color:#555;border:1px solid #ccc;border-radius:8px;cursor:pointer;">取消</button>' +
+      '<button type="button" data-act="ok" style="padding:8px 14px;background:#409c94;color:#fff;border:none;border-radius:8px;cursor:pointer;">添加选中</button>' +
+    '</div>';
+
+  const kwEl = ov.box.querySelector("#cbPickKw");
+  const listWrap = ov.box.querySelector("#cbPickListWrap");
+  const countEl = ov.box.querySelector("#cbPickCount");
+
+  function renderList(){
+    const list = filtered();
+    if(!list.length){
+      listWrap.innerHTML = '<div style="padding:14px;text-align:center;color:#94a3b8;">无匹配事项</div>';
+      return;
+    }
+    listWrap.innerHTML = list.map(function(e){
+      const inCombo = combo.todoIds.indexOf(e.id) >= 0;
+      const chk = picked.has(e.id);
+      return '<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f1f5f9;cursor:' + (inCombo ? "not-allowed" : "pointer") + ';' + (inCombo ? "opacity:.45;" : "") + '">' +
+        '<input type="checkbox" data-eid="'+e.id+'" '+(chk?"checked":"")+' '+(inCombo?"disabled":"")+'>' +
+        '<span style="flex:1;"><b>'+escHtml(e.name)+'</b> <span style="color:#94a3b8;font-size:11px;">· '+escHtml(e.cat||"未分类")+'</span></span>' +
+        (inCombo ? '<span style="font-size:11px;color:#22c55e;">已在组合</span>' : '') +
+      '</label>';
+    }).join("");
+  }
+  function updateCount(){ if(countEl) countEl.textContent = "已选 " + picked.size + " 项"; }
+
+  // 输入法：只更新数据，不重建输入框，不打断 composition
+  kwEl.addEventListener("input", function(){ kw = kwEl.value; renderList(); });
+  kwEl.addEventListener("compositionend", function(){ kw = kwEl.value; renderList(); });
+
+  ov.box.addEventListener("change", function(e){
+    const cb = e.target.closest("input[data-eid]"); if(!cb) return;
+    const id = cb.getAttribute("data-eid");
+    if(cb.checked) picked.add(id); else picked.delete(id);
+    updateCount();
+  });
+  ov.box.addEventListener("click", function(e){
+    const t = e.target.closest("[data-act]"); if(!t) return;
+    const a = t.getAttribute("data-act");
+    if(a === "all"){ filtered().forEach(function(e){ if(combo.todoIds.indexOf(e.id) < 0) picked.add(e.id); }); renderList(); updateCount(); return; }
+    if(a === "none"){ picked.clear(); renderList(); updateCount(); return; }
+    if(a === "cancel"){ ov.mask.remove(); return; }
+    if(a === "ok"){
+      const ids = Array.from(picked);
+      ov.mask.remove();
+      if(ids.length) onDone(ids);
+      return;
+    }
+  });
+
+  renderList();
+  updateCount();
+  kwEl.focus();
+}
+function _isScheduledToday(ev){
+  const td=todayStr();
+  if(ev.actionDateTime && ev.actionDateTime.indexOf(td)===0) return true;
+  if(Array.isArray(ev.dailyFixed)&&ev.dailyFixed.length){ try{ return effectiveFixedSegs(ev,td).length>0; }catch(e){ return false; } }
+  return false;
+}
+function openDeadlineBellPopup(){
+  const td=todayStr();
+  const dl=db.events.filter(ev=>ev.dailyDeadline&&!ev.isArchived)
+            .map(ev=>({ev:ev,m:hhmmToMin(ev.dailyDeadline)})).filter(x=>x.m>=0);
+  if(!dl.length){ showToast("没有每日截止事项"); return; }
+  const latestM=Math.max.apply(null,dl.map(x=>x.m));
+  const fmt=mm=>String(Math.floor(mm/60)).padStart(2,"0")+":"+String(mm%60).padStart(2,"0");
+  const ov=mkOverlay(); document.body.appendChild(ov.mask);
+  ov.mask.addEventListener("click",function(e){ if(e.target===ov.mask) ov.mask.remove(); });
+  const picked=new Set();
+  function statusOf(ev){
+    if(Object.values(db.timers).some(t=>t.eventId===ev.id)) return {txt:"计时中",c:"#409c94"};
+    if(isEventDoneForDate(ev,td)) return {txt:"已完成",c:"#94a3b8"};
+    if(_isScheduledToday(ev)) return {txt:"已排",c:"#0369a1"};
+    return {txt:"未排",c:"#b91c1c"};
+  }
+  function draw(){
+    ov.box.innerHTML='<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">⏰ 截止 '+fmt(latestM)+' · 相关事项</div>'+
+      '<div style="color:#64748b;font-size:12px;margin-bottom:8px;">勾选后可一键开始计时（已在计时/已完成的会自动跳过）。</div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:6px;">'+
+        '<button data-act="all" style="font-size:12px;padding:4px 10px;background:#f1f5f9;border:none;border-radius:6px;cursor:pointer;">全选</button>'+
+        '<button data-act="inv" style="font-size:12px;padding:4px 10px;background:#f1f5f9;border:none;border-radius:6px;cursor:pointer;">反选</button>'+
+      '</div>'+
+      '<div style="border:1px solid #f1f5f9;border-radius:8px;">'+
+        dl.map(function(x){ const ev=x.ev; const st=statusOf(ev);
+          return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;">'+
+            '<input type="checkbox" data-eid="'+ev.id+'" '+(picked.has(ev.id)?"checked":"")+'>'+
+            '<span style="flex:1;"><b>'+escHtml(ev.name)+'</b></span>'+
+            '<span style="font-size:11px;color:#64748b;">'+(ev.est||0)+'分钟</span>'+
+            '<span style="font-size:11px;color:'+st.c+';min-width:44px;text-align:right;">'+st.txt+'</span>'+
+          '</label>';
+        }).join("")+
+      '</div>'+
+      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">'+
+        '<button type="button" data-act="cancel" style="padding:8px 14px;background:#fff;color:#555;border:1px solid #ccc;border-radius:8px;cursor:pointer;">关闭</button>'+
+        '<button data-act="start" style="padding:8px 14px;background:#409c94;color:#fff;border:none;border-radius:8px;cursor:pointer;">▶ 开始计时选中项</button>'+
+      '</div>';
+  }
+  ov.box.addEventListener("change",function(e){ const cb=e.target.closest("input[data-eid]"); if(!cb) return; const id=cb.getAttribute("data-eid"); if(cb.checked) picked.add(id); else picked.delete(id); });
+  ov.box.addEventListener("click",function(e){
+    const t=e.target.closest("[data-act]"); if(!t) return; const a=t.getAttribute("data-act");
+    if(a==="all"){ dl.forEach(x=>picked.add(x.ev.id)); draw(); return; }
+    if(a==="inv"){ dl.forEach(function(x){ const id=x.ev.id; if(picked.has(id)) picked.delete(id); else picked.add(id); }); draw(); return; }
+    if(a==="cancel"){ ov.mask.remove(); return; }
+    if(a==="start"){
+      let started=0;
+      picked.forEach(function(id){
+        const ev=db.events.find(e=>e.id===id); if(!ev||ev.isArchived) return;
+        if(Object.values(db.timers).some(t=>t.eventId===id)) return;
+        if(isEventDoneForDate(ev,td)) return;
+        const tid=Date.now().toString()+"_"+Math.random().toString(36).slice(2,6);
+        db.timers[tid]={tid:tid,eventId:id,startAt:Date.now()};
+        db.pausedTimers=(db.pausedTimers||[]).filter(x=>x!==id);
+        started++;
+      });
+      saveDB(); renderGlobalTimers(); renderTodos(); renderCatTree(); renderAxis();
+      showToast(started>0?("已启动 "+started+" 个计时"):"选中项无需启动");
+      ov.mask.remove(); return;
+    }
+  });
+  draw();
+}
+
 </script>
 </body>
 </html>
